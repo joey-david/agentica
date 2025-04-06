@@ -8,6 +8,9 @@ Agentica is a curated collection of LLM agents I've built over time—ranging fr
 Memorable is your on-demand memory enhancer. It logs your interactions, recalls context with near psychic precision, and helps you navigate complex conversations without missing a beat.  
 *Status: Stable & evolving*
 
+### Tool Builder
+A specific agent used to create specific tools (api, programs) to enhance the capabilities of other agents.
+
 <!-- Add details about other agents below as they’re added -->
 
 ## Features
@@ -20,7 +23,7 @@ Memorable is your on-demand memory enhancer. It logs your interactions, recalls 
 
 1. **Clone the Repo:**
    ```bash
-   git clone https://github.com/yourusername/agentica.git
+   git clone https://github.com/joey-david/agentica.git
    cd agentica
    ```
 
