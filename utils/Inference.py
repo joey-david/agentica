@@ -3,6 +3,15 @@ import json
 from dotenv import load_dotenv
 from os import getenv
 
+# specifications = """
+# You should think step by step in order to fullfill the objective by reasoning in a clear Thought/Action/Observation pattern.
+# Before starting the loop, write a clear plan on how to achieve the objective. Then, start the loop:
+# - You should first reflect with `Thought: {your_thoughts}` on the current situation.
+# During this step, if the objective is achieved, write your final answer/observation in the following format `Final Answer: {your_answer}`.
+# - Then, in an Action step, call one or several of the tools at your disposal in the format `Action: {JSON_BLOB}` to achieve the objective.
+# - After this you will receive the result of your Action step. You should reflect on this result and update your plan if necessary in the format `Observation: {result}`.
+# """
+
 def get_inference(input: str) -> str:
     # Load the API key from the environment variable
     load_dotenv()
@@ -17,8 +26,8 @@ def get_inference(input: str) -> str:
         "model": "deepseek/deepseek-chat-v3-0324:free",
         "messages": [
         {
-            "role": "user",
-            "content": f"{input}"
+            "role": "system",
+            "content": f"{input} + {specifications}"
         }
         ]
     })

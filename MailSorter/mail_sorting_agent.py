@@ -1,11 +1,8 @@
 import sys
 import os
 from dotenv import load_dotenv
-from huggingface_hub import login
-from smolagents import ToolCallingAgent, HfApiModel
+from utils.Agent import ToolCallingAgent
 login()
-
-
 
 def prompt(emailsToSort: int) -> str:
     f"""
