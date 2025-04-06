@@ -1,14 +1,18 @@
-HISTORY_LENGTH = 20
-
 class Memory:
     """
     A simple memory class to store and retrieve key-value pairs to more easily manage agents memory.
     """
 
-    def __init__(self, persistent_prompt: str = "", history: list = []):
+    def __init__(self, history_length: int = 25):
+        """
+        Initialize the memory with a specified history length.
+        Args:
+            history_length (int): The maximum number of messages to keep in history.
+        """
         self.memory = {}
-        self.persistent_prompt = persistent_prompt
-        self.history = history
+        self.history_length = history_length
+        self.history = []
+        self.message_count = 0
 
     def get_history(self):
         return "\n".join(self.history)
@@ -17,13 +21,14 @@ class Memory:
         """
         Add a message to the history.
         """
-        self.history.append(message)
+        self.history.append("(" + str(self.message_count) + ".) " + message)
+        self.message_count += 1
         # Replace the oldest message with an ellipsis that we forgot some of the earlier actions
-        if len(self.history) > HISTORY_LENGTH:
+        if len(self.history) > self.history_length:
             self.history.pop(0)
             self.history[0] = "..."
 
-    def add(self, key, value):
+    def add(self, key: str, value):
         """
         Add a key-value pair to the memory.
         """

@@ -9,108 +9,174 @@ initialization_prompt = yaml.safe_load(open("utils/prompts/initialization.yaml",
 observation_prompt = yaml.safe_load(open("utils/prompts/observation.yaml", "r"))
 thinking_prompt = yaml.safe_load(open("utils/prompts/thinking.yaml", "r"))
 specifications = yaml.safe_load(open("utils/prompts/specifications.yaml", "r"))
+memory_prompt = yaml.safe_load(open("utils/prompts/memory.yaml", "r"))
 
 class ToolCallingAgent:
-    def __init__(self, tools: list, persistent_prompt: str, memory_instance: Memory = None):
+    def __init__(self, tools: list, persistent_prompt: str, memory_instance: Memory = None, max_steps: int = 10):
         """
         Initialize the agent with tools and a model inference function.
 
         Args:
             tools (list): A list of Tool objects.
             persistent_prompt (str): A prompt to be used for the model inference at every step.
+            memory_instance (Memory): An optional instance of the Memory class.
+            max_steps (int): The maximum number of reasoning steps.
         """
         self.tools = {tool.name: tool for tool in tools}
-        self.memory = memory_instance if memory_instance else Memory(persistent_prompt=persistent_prompt)
+        self.memory = memory_instance if memory_instance else Memory()
+        self.persistent_prompt = persistent_prompt
+        self.max_steps = max_steps
 
-
-    def parse_response(self, response: str) -> list:
+    def tools_prompt(self) -> str:
         """
-        Parse the model's response to extract all matches for action, plan, thought, observation, or final answer.
-
-        Args:
-            response (str): The model's response.
-
-        Returns:
-            list: A list of dictionaries, each containing the type (Plan, Thought, Action, Observation, Final_Answer) 
-                  and the corresponding content.
+        Returns a string representation of the tools available to the agent.
         """
+        return "\n".join([tool.to_string() for tool in self.tools.values()])
+    
+    def memory_prompt(self) -> str:
+        """
+        Returns a string representation of the memory available to the agent.
+        """
+        return memory_prompt + "\n" + self.memory.get_history()
 
-        patterns = {
-            "Plan": r"Plan:\s*\{(.*?)\}",
-            "Thought": r"Thought:\s*\{(.*?)\}",
-            "Action": r"Action:\s*\{(.*?)\}",
-            "Observation": r"Observation:\s*\{(.*?)\}",
-            "Final_Answer": r"Final_Answer:\s*\{(.*?)\}"
-        }
-
-        matches = []
-        for key, pattern in patterns.items():
-            for match in re.finditer(pattern, response, re.DOTALL):
-                content = match.group(1).strip()
-                if key == "Action":
-                    try:
-                        matches.append({"type": key, "content": json.loads(f"{{{content}}}")})
-                    except json.JSONDecodeError:
-                        raise ValueError("Invalid JSON format in the Action response.")
-                else:
-                    matches.append({"type": key, "content": content})
-
-        if not matches:
-            raise ValueError("No valid patterns found in the response.")
-
-        return matches
-
-    def initialize_step(self) -> str:
+    def initialize_step(self, prompt: str) -> str:
         """
         Initialize the agent's state for the first step.
-        This method can be overridden in subclasses to provide custom initialization.
         Returns:
-            The agent's plan, and stores in it memory.
+            The agent's plan, and stores it in memory.
         """
-        # Initialize the agent's state here
+        compiled_prompt = "\n".join([
+            prompt,
+            specifications,
+            initialization_prompt,
+            self.tools_prompt()
+        ])
+        print(f"Initialization Prompt: {compiled_prompt}")
+        response = get_inference(prompt)
+        print(f"Initialization Response: {response}")
+        parsed_response = self.parse_response(response)
+        if "Plan" in parsed_response:
+            plan = parsed_response["Plan"]
+            self.memory.add_to_history(f"Plan: {plan}")
+            self.memory.add("Plan", plan)
+            # print(f"Plan: {plan}")
+        else:
+            raise ValueError("No valid plan found in the response.")
+        return plan
 
-        
     def thinking_step(self, prompt: str) -> str:
         """
         Perform a single step of reasoning and action.
+
         Args:
             prompt (str): The prompt to process.
+
         Returns:
             str: The response from the model.
-        """        
+        """
+        compiled_prompt = "\n".join([
+            prompt,
+            specifications,
+            self.memory_prompt(),
+            thinking_prompt
+        ])
+        print(f"Thinking Prompt: {compiled_prompt}")
+        response = get_inference(compiled_prompt)
+        print(f"Thinking Response: {response}")
+        self.memory.add_to_history(f"Thought: {response}")
+        return response
+    
+    def action_step(self, actions: dict) -> str:
+        """
+        Perform the action step of the agent by calling the specified tools.
+
+        Args:
+            actions (dict): A dictionary containing the tools to call and their arguments.
+
+        Returns:
+            str: The combined results of all tool calls.
+        """
+        results = {}
+        for action in actions.get("actions", []):
+            tool_name = action.get("tool")
+            tool_args = action.get("args", {})
+            
+            if tool_name not in self.tools:
+                raise ValueError(f"Tool '{tool_name}' not found.")
+            
+            tool = self.tools[tool_name]
+            try:
+                result = tool(**tool_args)
+                results[tool_name] = result
+            except Exception as e:
+                results[tool_name] = f"Error: {str(e)}"
         
+        # Add action results to memory
+        self.memory.add_to_history(f"Action Results: {json.dumps(results)}")
+        return json.dumps(results)
+
+    def observation_step(self, prompt, results: str) -> str:
+        """
+        Process the results of the actions and generate an observation.
+
+        Args:
+            results (str): The results of the action step.
+
+        Returns:
+            str: The observation generated by the model.
+        """
+        compiled_prompt = "\n".join([
+            prompt,
+            specifications,
+            observation_prompt,
+            self.memory_prompt(),
+            f"Results: {results}",
+        ])
+        print(f"Observation Prompt: {compiled_prompt}")
+        response = get_inference(compiled_prompt)
+        print(f"Observation Response: {response}")
+        self.memory.add_to_history(f"Observation: {response}")
+        return response
+
     def run(self, prompt: str) -> str:
         """
         Runs the agent's reasoning and action loop.
-        
+
         Args:
             prompt (str): The initial prompt to start the reasoning process.
-        
+
         Returns:
             str: The final answer after reasoning and actions.
         """
-        finalThought = False
-        state = self.initialize_step()
-        while (not finalThought):
-            thoughts_actions = self.thinking_step()
-            # Parse the response to extract all matches for action, plan, thought, observation, or final answer
-            parsed_thoughts_actions = self.parse_response(thoughts_actions)
+        step = 0
+        prompt = self.persistent_prompt + prompt
+        self.initialize_step(prompt=prompt)
+        while step < self.max_steps:
+            # Thinking step
+            thoughts_actions = self.thinking_step(prompt)
+            parsed_response = self.parse_response(thoughts_actions)
 
-            # Add the thought to the memory
-            self.memory.add_to_history(parsed_response)
+            # Check for final answer
             if "Final_Answer" in parsed_response:
-                finalThought = True
-                print(f"Final Answer: {parsed_response["Final_Answer"]}")
-                return parsed_response["Final_Answer"]
-            
-            observation = self.observation_step()
-            parsed_response = self.parse_response(observation)
-            if "Observation" in parsed_response:
-                observation = parsed_response["Observation"]
-                print(f"Observation: {observation}")
-                self.memory.add("lastObservation", observation)
+                final_answer = parsed_response["Final_Answer"]
+                self.memory.add_to_history(f"Final Answer: {final_answer}")
+                print(f"Final Answer: {final_answer}")
+                return final_answer
 
+            # Action step
+            if "Action" in parsed_response:
+                json_actions = parsed_response["Action"]
+                results = self.action_step(json_actions)
 
+                # Observation step
+                observation = self.observation_step(results, prompt)
+                parsed_response = self.parse_response(observation)
+
+            step += 1
+
+        print(f"Memory: {self.memory.get_all()}")
+        raise ValueError("Max steps reached without finding a final answer.")
+        
 
     def contains_final_answer(self, response: str) -> bool:
         """
@@ -123,6 +189,58 @@ class ToolCallingAgent:
             bool: True if a final answer is found, False otherwise.
         """
         return "Final_Answer" in response
+    
+
+    def parse_response(self, response: str) -> dict:
+        """
+        Parse the model's response to extract all matches for action, plan, thought, observation, or final answer.
+
+        Args:
+            response (str): The model's response.
+
+        Returns:
+            dict: A dictionary where keys are the types (Plan, Thought, Action, Observation, Final_Answer) 
+                    and values are the corresponding content.
+        """
+        patterns = {
+            "Plan": r"Plan:?\s*\{?(.*?)\}?",
+            "Thought": r"Thought:?\s*\{?(.*?)\}?",
+            "Action": r"Action:?\s*(\{.*\})",
+            "Observation": r"Observation:?\s*\{?(.*?)\}?",
+            "Final_Answer": r"Final_Answer:?\s*\{?(.*?)\}?"
+        }
+
+        parsed_response = {}
+        for key, pattern in patterns.items():
+            match = re.search(pattern, response, re.DOTALL)
+            if match:
+                content = match.group(1).strip()
+                if key == "Action":
+                    try:
+                        action_json = content
+                        # Check if the JSON structure is correct
+                        parsed_json = json.loads(action_json)
+                        if not "actions" in parsed_json:
+                            # Try to fix the structure if "Actions" is used instead of "actions"
+                            action_json = action_json.replace('"Actions"', '"actions"')
+                            action_json = action_json.replace('"ACTIONS"', '"actions"')
+                            # Handle cases where quote marks are added on the sides of keys
+                            action_json = action_json.replace("'actions'", '"actions"')
+                            action_json = action_json.replace("'tool'", '"tool"')
+                            action_json = action_json.replace("'args'", '"args"')
+                            parsed_json = json.loads(action_json)
+                        parsed_response[key] = parsed_json
+                    except json.JSONDecodeError as e:
+                        print(f"JSON parsing error: {e}")
+                        print(f"Content: {content}")
+                        raise ValueError(f"Invalid JSON format in the Action response. Error: {str(e)}")
+                else:
+                    parsed_response[key] = content
+
+        if not parsed_response:
+            raise ValueError("No valid patterns found in the response.")
+
+        return parsed_response
 
 if __name__ == "__main__":
     print(specifications)
