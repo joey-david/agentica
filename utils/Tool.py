@@ -64,9 +64,9 @@ def tool(func):
     # determine the return annotation
     return_annotation = sig.return_annotation
     if return_annotation is sig.empty:
-        return_annotation = "No return annotation"
+        outputs = "No return annotation"  # Initialize outputs when no return annotation is provided
     else:
-        ouputs = (
+        outputs = (
             return_annotation.__name__ if hasattr(return_annotation, '__name__')
             else str(return_annotation)
         )
@@ -83,5 +83,5 @@ def tool(func):
         description=description,
         func=func,
         args=arguments,
-        outputs=ouputs
+        outputs=outputs
     )
