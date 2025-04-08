@@ -49,4 +49,5 @@ Action: {
   ]
 }
 
-Remember to include your final answer if the objective is achieved: `Final_Answer: {your_answer}`"
+Remember to include your final answer if the objective is achieved: `Final_Answer: {your_answer}`
+Here is a list of the tools you have access to:"

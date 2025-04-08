@@ -51,9 +51,9 @@ class ToolCallingAgent:
             initialization_prompt,
             self.tools_prompt()
         ])
-        print(f"Initialization Prompt: {compiled_prompt}")
-        response = get_inference(prompt)
-        print(f"Initialization Response: {response}")
+        print(f"Initialization Prompt:\n {compiled_prompt}\n\n")
+        response = get_inference(compiled_prompt)
+        print(f"LLM Response:\n {response}\n\n")
         parsed_response = self.parse_response(response)
         if "Plan" in parsed_response:
             plan = parsed_response["Plan"]
@@ -78,7 +78,8 @@ class ToolCallingAgent:
             prompt,
             specifications,
             self.memory_prompt(),
-            thinking_prompt
+            thinking_prompt,
+            self.tools_prompt()
         ])
         print(f"Thinking Prompt: {compiled_prompt}")
         response = get_inference(compiled_prompt)

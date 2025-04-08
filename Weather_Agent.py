@@ -19,7 +19,6 @@ Agent = ToolCallingAgent(
 )
 
 if __name__ == "__main__":
-    print(get_weather.to_string())
     city_name = "New York"
     weather_info = Agent.run(f"What's the weather like in {city_name}?")
     print(weather_info)
