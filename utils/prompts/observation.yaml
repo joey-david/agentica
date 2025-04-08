@@ -4,6 +4,8 @@ Process:
 1. Study the action results and determine what they mean for your objective
 2. If your plan needs revision based on these results, create a new plan: `Plan: {updated_plan}`
 3. Summarize your observation in 2-3 sentences: `Observation: {your_observation}`
+4. If AND ONLY IF the FINAL GOAL of the plan, output your final answer after your observation in the format `Final_Answer: {your_answer}`
+
 
 In your observation, include:
 - What the action result shows

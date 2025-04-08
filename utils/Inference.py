@@ -5,35 +5,40 @@ from os import getenv
 from openai import OpenAI
 
 
-# def get_inference(input: str) -> str:
-#     """
-#     Makes an API request to OpenAI's DeepSeek model for inference.
-
-#     Args:
-#         input (str): The input string to be sent to the model.
-
-#     Returns:
-#         str: The model's response.
-#     """
-#     # Load the API key from the environment variable
-#     load_dotenv()
-#     base_url = "https://api.deepseek.com"
-#     client = OpenAI(api_key=getenv("DEEPSEEK_KEY"), base_url=base_url)
-#     response = client.chat.completions.create(
-#         model="deepseek-chat",
-#         messages=[
-#             {
-#                 "role": "system",
-#                 "content": f"{input}"
-#             }
-#         ],
-#         )
-#     # Check for errors
-#     # Extract the content from the response
-#     return response.choices[0].message.content
+def get_inference(input: str) -> str:
+    # return get_inference_openrouter(input)
+    return get_inference_deepseek(input)
     
 
-def get_inference(input: str) -> str:
+def get_inference_deepseek(input: str) -> str:
+    """
+    Makes an API request to OpenAI's DeepSeek model for inference.
+
+    Args:
+        input (str): The input string to be sent to the model.
+
+    Returns:
+        str: The model's response.
+    """
+    # Load the API key from the environment variable
+    load_dotenv()
+    base_url = "https://api.deepseek.com"
+    client = OpenAI(api_key=getenv("OPENAI_API_KEY"), base_url=base_url)
+    response = client.chat.completions.create(
+        model="deepseek-chat",
+        messages=[
+            {
+                "role": "system",
+                "content": f"{input}"
+            }
+        ],
+        )
+    # Check for errors
+    # Extract the content from the response
+    return response.choices[0].message.content
+    
+
+def get_inference_openrouter(input: str) -> str:
     # Load the API key from the environment variable
     load_dotenv()
 

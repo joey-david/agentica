@@ -21,7 +21,9 @@ FORMATTING REQUIREMENTS:
 - Use double quotes for all JSON keys
 - Match tool names and argument names EXACTLY as provided
 - Ensure proper JSON syntax with commas and brackets
-- You can call multiple tools in a single action by adding more objects to the actions array
+- You can call multiple tools in a single action by adding more objects to the actions array.
+- If needing to make several similar calls, you SHOULD try to call the same tools/similar tools multiple times
+at once, by adding more objects to the actions array.
 
 Example of correct formatting:
 Action: {
@@ -31,6 +33,13 @@ Action: {
       \"args\": {
         \"query\": \"climate change\",
         \"limit\": 5
+      }
+    },
+    {
+      \"tool\": \"analyze_data\",
+      \"args\": {
+        \"data_id\": 12345,
+        \"analysis_type\": \"trend_analysis\"
       }
     }
   ]
@@ -49,5 +58,8 @@ Action: {
   ]
 }
 
-Remember to include your final answer if the objective is achieved: `Final_Answer: {your_answer}`
+3. After calling the tools, do NOTHING else. Do not provide any output or explanation.
+Do not provide an observation yet, as the results of your tool calls will be given to you
+in the next prompt.
+
 Here is a list of the tools you have access to:"
