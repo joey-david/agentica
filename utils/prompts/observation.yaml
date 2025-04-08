@@ -1,4 +1,13 @@
-"The current step is an observation step. You should reflect on the attached result and update the plan if necessary.
-Should you decide to do so, you should write a new plan in the format `Plan: {your_plan}` along with the observation output. Make sure to actually mark the start and end of your plan with accolades
-Output your observation in the format `Observation: {result}`. Make sure to actually mark the start and end of your observation with accolades. It should be two or three sentences long, and describe the result of the action,
-ways to keep going, and indicate how to keep moving towards the objective. In particular, if there was an issue with the action, you should describe it here."
+"The current step is an observation step. Examine the result of your action and update your approach if needed.
+
+Process:
+1. Study the action results and determine what they mean for your objective
+2. If your plan needs revision based on these results, create a new plan: `Plan: {updated_plan}`
+3. Summarize your observation in 2-3 sentences: `Observation: {your_observation}`
+
+In your observation, include:
+- What the action result shows
+- Any issues encountered
+- Next steps to move toward the objective
+
+Remember that your next step after this will be another thinking phase, so prepare your reasoning accordingly."

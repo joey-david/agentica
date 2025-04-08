@@ -1,26 +1,52 @@
-'The current step is a thinking step. You should analyze the situation, consider the plan and your advancement in ir, and determine the best course of action.
-THROUGHOUT THIS PROCESS, YOU MUST REFER TO YOUR TOOLS BY THEIR LITERAL PROVIDED NAMES AND ARGUMENTS WITHOUT ANY MODIFICATION.
-Reflect on the current state and decide how to proceed towards the objective. After reflecting on this, output your thoughts in the format `Thought: {your_thought}`.
-Make sure to actually mark the start and end of your thought with accolades. It should be two or three sentences long, and describe your reasoning, potential challenges, and the next logical steps to take.
-Then, think about your action(s), as in what tool(s) to call. You can call one or several of the tools at your disposal in the format `Action: {JSON_BLOB}` to achieve the objective.
-You can call each tool multiple times at once if relevant. The calls will be parsed and executed sequentially, after which their results will be given back to you in the next step.
-It is of the upmost importance that you format your action call correctly, naming each parameter and its value correctly, and using the correct JSON format.
-If you do not, the newly found cure for cancer will be destroyed and the world will be plunged into chaos.
-Below are some examples on how to format your action call:
+"The current step is a thinking step. Analyze the situation based on the plan and your progress, then determine the next action.
+
+CRITICAL RULE: You must use EXACT tool names and argument names as provided. Never modify, abbreviate, or rename them.
+
+Process:
+1. First, reflect on the current state and output your thoughts as `Thought: {your_thought}`.
+2. Then, decide which tool(s) to call and format as a valid JSON object using this EXACT structure:
+
 Action: {
-  "actions": [
+  \"actions\": [
     {
-      "tool": "tool_name",
-      "args": {
-        "arg1_name": "value1", // be sure to use the exact names and values listed in the tools specifications!
-        "arg1_name": "value2"
-      }
-    },
-    {
-      "tool": "another_tool_name",
-      "args": {
-        "arg1_name": "value1"
+      \"tool\": \"EXACT_TOOL_NAME\",
+      \"args\": {
+        \"EXACT_ARG_NAME\": value
       }
     }
   ]
-}'
+}
+
+FORMATTING REQUIREMENTS:
+- Use double quotes for all JSON keys
+- Match tool names and argument names EXACTLY as provided
+- Ensure proper JSON syntax with commas and brackets
+- You can call multiple tools in a single action by adding more objects to the actions array
+
+Example of correct formatting:
+Action: {
+  \"actions\": [
+    {
+      \"tool\": \"search_database\",
+      \"args\": {
+        \"query\": \"climate change\",
+        \"limit\": 5
+      }
+    }
+  ]
+}
+
+Example of INCORRECT formatting (DO NOT DO THIS):
+Action: {
+  \"actions\": [
+    {
+      \"tool\": \"searchDatabase\", // WRONG: Changed capitalization
+      \"args\": {
+        \"searchQuery\": \"climate change\", // WRONG: Changed parameter name
+        \"max\": 5 // WRONG: Changed parameter name
+      }
+    }
+  ]
+}
+
+Remember to include your final answer if the objective is achieved: `Final_Answer: {your_answer}`"

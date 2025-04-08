@@ -3,7 +3,7 @@ import requests
 from utils.Tool import tool
 
 @tool
-def get_weather(location) -> str:
+def get_weather(location: str) -> str:
     """
     Fetches the weather information for a given city.
     Arguments:
@@ -15,10 +15,11 @@ def get_weather(location) -> str:
 
 Agent = ToolCallingAgent(
     [get_weather],
-    persistent_prompt="You are a weather assistant. You can provide weather information for any city, using the tools at your disposal.",
+    persistent_prompt="You are a weather assistant. You can provide weather information for any city, using the tools at your disposal. Make sure to follow the thought/action/observation loop.",
 )
 
 if __name__ == "__main__":
+    print(get_weather.to_string())
     city_name = "New York"
     weather_info = Agent.run(f"What's the weather like in {city_name}?")
     print(weather_info)
