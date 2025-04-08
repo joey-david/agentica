@@ -104,58 +104,52 @@ class ToolCallingAgent:
     def action_step(self, actions: dict) -> str:
         """
         Perform the action step of the agent by calling the specified tools.
-
         Args:
             actions (dict): A dictionary containing the tools to call and their arguments.
-
         Returns:
-            str: The combined results of all tool calls.
+            str: The combined results of all tool calls in JSON format.
         """
         results = {}
-        action_list = actions.get("actions", [])
+        tool_count = {}
         
-        # Log the number of actions being performed
-        print(f"Executing {len(action_list)} tool actions")
-        
-        for action in action_list:
+        for action in actions.get("actions", []):
+            # Get tool info
             tool_name = action.get("tool")
             tool_args = action.get("args", {})
             
+            # Skip if tool not found
             if tool_name not in self.tools:
-                error_msg = f"Tool '{tool_name}' not found."
-                print(error_msg)
-                results[tool_name] = f"Error: {error_msg}"
+                results[f"{tool_name}_error"] = f"Error: Tool '{tool_name}' not found."
                 continue
+                
+            # Create unique key for this tool call
+            count = tool_count.get(tool_name, 0)
+            tool_count[tool_name] = count + 1
+            key = f"{tool_name}_{count}" if count > 0 else tool_name
             
-            tool = self.tools[tool_name]
+            # For location-based lookups, include location in key
+            if "location" in tool_args:
+                key = f"{tool_name}_{tool_args['location']}"
+            
+            # Call the tool
             try:
-                result = tool(**tool_args)
-                print(f"Tool '{tool_name}' called with args {tool_args} returned: {result}")
-                results[tool_name] = result
+                results[key] = self.tools[tool_name](**tool_args)
             except Exception as e:
-                error_msg = f"Error: {str(e)}"
-                print(f"Tool '{tool_name}' error: {error_msg}")
-                results[tool_name] = error_msg
+                results[key] = f"Error: {str(e)}"
         
-        # Store results in memory with clear formatting
+        # Store formatted results in memory
         if results:
-            formatted_results = []
-            for tool_name, result in results.items():
-                # Format the result with tool name clearly indicated
-                formatted_result = f"Tool: {tool_name}\nResult: "
-                # Truncate long results with meaningful indication
-                if isinstance(result, str) and len(result) > 300:
-                    formatted_result += f"{result[:297]}..."
-                else:
-                    formatted_result += f"{result}"
-                formatted_results.append(formatted_result)
+            formatted = []
+            for key, result in results.items():
+                tool_name = key.split('_')[0]
+                param_info = '_'.join(key.split('_')[1:]) if '_' in key else ''
+                header = f"Tool: {tool_name}" + (f" ({param_info})" if param_info else "")
+                formatted.append(f"{header}\nResult: {result}")
             
-            # Add a separator between multiple results
-            results_text = "\n\n".join(formatted_results)
-            self.memory.add_structured_entry("Results", results_text)
+            self.memory.add_structured_entry("Results", "\n\n".join(formatted))
         
-        # Return JSON with all results properly structured
-        return json.dumps({"results": results}, indent=2)
+        # Return JSON results
+        return json.dumps({"results": results})
 
     def observation_step(self, results: str, prompt: str) -> str:
         """
@@ -202,19 +196,12 @@ class ToolCallingAgent:
             # Thinking step
             thoughts_actions = self.thinking_step(prompt)
             parsed_response = self.parse_response(thoughts_actions)
-
-            # Check for final answer
-            if "Final_Answer" in parsed_response:
-                final_answer = parsed_response["Final_Answer"]
-                self.memory.add_structured_entry("Final_Answer", final_answer)
-                print(f"Final Answer: {final_answer}")
-                return final_answer
-
+            
             # Action step
             if "Action" in parsed_response:
-                json_actions = parsed_response["Action"]
-                results = self.action_step(json_actions)
-
+                results = self.action_step(parsed_response["Action"])
+                print(f"Action Results: {results}")
+                
                 # Observation step
                 observation = self.observation_step(results, prompt)
                 parsed_response = self.parse_response(observation)
@@ -343,4 +330,39 @@ class ToolCallingAgent:
         return parsed_json
 
 if __name__ == "__main__":
-    print(specifications)
+    # Import necessary components
+    from Weather_Agent import get_weather
+    
+    # Create a test agent with just the weather tool
+    test_agent = ToolCallingAgent(
+        [get_weather],
+        persistent_prompt="You are a weather assistant. You can provide weather information for any city, using the tools at your disposal. Make sure to follow the thought/action/observation loop.",
+        max_steps=3
+    )
+    
+    # Create a test action with multiple tool calls
+    test_actions = {
+        "actions": [
+            {
+                "tool": "get_weather",
+                "args": {"location": "Tokyo"}
+            },
+            {
+                "tool": "get_weather", 
+                "args": {"location": "New York"}
+            }
+        ]
+    }
+    
+    # Execute the actions
+    print("Testing multiple tool calls in a single action...")
+    results = test_agent.action_step(test_actions)
+    print("\nRaw JSON results:")
+    print(results)
+    
+    # Extract and print the formatted results from memory
+    print("\nFormatted results from memory:")
+    for entry in test_agent.memory.structured_history:
+        if entry["type"] == "Results":
+            print(entry["content"])
+    
