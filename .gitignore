@@ -2,3 +2,19 @@
 **/.venv/
 **/*.db
 **/.env
+
+# Ignore all contents of auth/
+auth/**
+
+# But keep folder structure
+!auth/
+!auth/**/
+!auth/**/.gitkeep
+
+# Don't track credentials or API keys
+auth/**/*.json
+auth/**/*.key
+auth/**/*.env
+
+# Optional: allow checked-in templates
+!auth/**/example.env

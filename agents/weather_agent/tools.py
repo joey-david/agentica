@@ -50,5 +50,5 @@ Agent = ToolCallingAgent(
 
 if __name__ == "__main__":
     city_name = "Tokyo"
-    weather_info = Agent.run(f"For a nice walk right now, should I teleport to tokyo or new york?")
+    weather_info = Agent.run(f"Should I wear a coat in Albertville?")
     print(weather_info)
