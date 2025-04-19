@@ -1,18 +1,57 @@
 import json
 import yaml
-from utils.Memory import Memory
-from utils.Inference import get_inference
-from utils.Tool import Tool
+from core.memory import Memory
+from core.inference import get_inference
+from core.tool import Tool, tool
 import re
+from datetime import datetime
+import textwrap
 
-initialization_prompt = yaml.safe_load(open("utils/prompts/initialization.yaml", "r"))
-observation_prompt = yaml.safe_load(open("utils/prompts/observation.yaml", "r"))
-thinking_prompt = yaml.safe_load(open("utils/prompts/thinking.yaml", "r"))
-specifications = yaml.safe_load(open("utils/prompts/specifications.yaml", "r"))
-memory_prompt = yaml.safe_load(open("utils/prompts/memory.yaml", "r"))
+# ANSI color codes for terminal output
+class Colors:
+    RESET = "\033[0m"
+    BOLD = "\033[1m"
+    UNDERLINE = "\033[4m"
+    
+    # Foreground colors
+    BLACK = "\033[30m"
+    RED = "\033[31m"
+    GREEN = "\033[32m"
+    YELLOW = "\033[33m"
+    BLUE = "\033[34m"
+    MAGENTA = "\033[35m"
+    CYAN = "\033[36m"
+    WHITE = "\033[37m"
+    
+    # Background colors
+    BG_BLACK = "\033[40m"
+    BG_RED = "\033[41m"
+    BG_GREEN = "\033[42m"
+    BG_YELLOW = "\033[43m"
+    BG_BLUE = "\033[44m"
+    BG_MAGENTA = "\033[45m"
+    BG_CYAN = "\033[46m"
+    BG_WHITE = "\033[47m"
+
+    # Bright colors
+    BRIGHT_BLACK = "\033[90m"
+    BRIGHT_RED = "\033[91m"
+    BRIGHT_GREEN = "\033[92m"
+    BRIGHT_YELLOW = "\033[93m"
+    BRIGHT_BLUE = "\033[94m"
+    BRIGHT_MAGENTA = "\033[95m"
+    BRIGHT_CYAN = "\033[96m"
+    BRIGHT_WHITE = "\033[97m"
+
+# Load prompts
+initialization_prompt = yaml.safe_load(open("core/prompts/initialization.yaml", "r"))
+observation_prompt = yaml.safe_load(open("core/prompts/observation.yaml", "r"))
+thinking_prompt = yaml.safe_load(open("core/prompts/thinking.yaml", "r"))
+specifications = yaml.safe_load(open("core/prompts/specifications.yaml", "r"))
+memory_prompt = yaml.safe_load(open("core/prompts/memory.yaml", "r"))
 
 class ToolCallingAgent:
-    def __init__(self, tools: list, persistent_prompt: str, memory_instance: Memory = None, max_steps: int = 10):
+    def __init__(self, tools: list, persistent_prompt: str, memory_instance: Memory = None, max_steps: int = 10, debug: bool = True):
         """
         Initialize the agent with tools and a model inference function.
 
@@ -21,11 +60,92 @@ class ToolCallingAgent:
             persistent_prompt (str): A prompt to be used for the model inference at every step.
             memory_instance (Memory): An optional instance of the Memory class.
             max_steps (int): The maximum number of reasoning steps.
+            debug (bool): Whether to print debug information to the console.
         """
         self.tools = {tool.name: tool for tool in tools}
         self.memory = memory_instance if memory_instance else Memory()
         self.persistent_prompt = persistent_prompt
         self.max_steps = max_steps
+        self.debug = debug
+        # Print welcome banner
+        if self.debug:
+            self._print_banner("AGENTICA TOOL AGENT INITIALIZED")
+
+    def _print_banner(self, text):
+        """Print a stylish banner with the given text"""
+        width = len(text) + 4
+        border = "┌" + "─" * width + "┐"
+        content = "│  " + text + "  │"
+        bottom = "└" + "─" * width + "┘"
+        
+        print(f"\n{Colors.BOLD}{Colors.BLUE}{border}{Colors.RESET}")
+        print(f"{Colors.BOLD}{Colors.BLUE}{content}{Colors.RESET}")
+        print(f"{Colors.BOLD}{Colors.BLUE}{bottom}{Colors.RESET}\n")
+
+    def _print_step_header(self, step_type, step_num=None):
+        """Print a step header with the given step type and number"""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        
+        if step_num is not None:
+            header = f" {step_type.upper()} (STEP {step_num}) - {timestamp} "
+        else:
+            header = f" {step_type.upper()} - {timestamp} "
+        
+        color = {
+            "INITIALIZATION": Colors.BG_BLUE + Colors.WHITE,
+            "THINKING": Colors.BG_MAGENTA + Colors.WHITE,
+            "ACTION": Colors.BG_GREEN + Colors.BLACK,
+            "RESULTS": Colors.BG_CYAN + Colors.BLACK,
+            "OBSERVATION": Colors.BG_YELLOW + Colors.BLACK,
+            "FINAL ANSWER": Colors.BG_GREEN + Colors.WHITE + Colors.BOLD
+        }.get(step_type.upper(), Colors.BG_WHITE + Colors.BLACK)
+        
+        print(f"\n{color}{header}{Colors.RESET}\n")
+
+    def _format_content(self, content, indent=0, width=100):
+        """Format content with proper indentation and wrapping"""
+        if isinstance(content, dict) or isinstance(content, list):
+            formatted = json.dumps(content, indent=2)
+        else:
+            formatted = str(content)
+            
+        # Wrap text to specified width
+        lines = formatted.split('\n')
+        wrapped_lines = []
+        for line in lines:
+            if len(line) > width:
+                wrapped = textwrap.wrap(line, width=width)
+                wrapped_lines.extend(wrapped)
+            else:
+                wrapped_lines.append(line)
+                
+        # Apply indentation
+        indented = [" " * indent + line for line in wrapped_lines]
+        return "\n".join(indented)
+
+    def _print_json(self, data, title=None):
+        """Print JSON data with syntax highlighting"""
+        if title:
+            print(f"{Colors.BRIGHT_BLUE}{title}{Colors.RESET}")
+            
+        if isinstance(data, str):
+            try:
+                data = json.loads(data)
+            except:
+                pass
+                
+        if isinstance(data, dict) or isinstance(data, list):
+            # Convert to string with indentation
+            json_str = json.dumps(data, indent=2)
+            
+            # Syntax highlighting
+            json_str = json_str.replace('"', f'{Colors.GREEN}"') \
+                             .replace('": ', f'"{Colors.RESET}: {Colors.YELLOW}') \
+                             .replace(',', f'{Colors.RESET},')
+                             
+            print(json_str + Colors.RESET)
+        else:
+            print(data)
 
     def tools_prompt(self) -> str:
         """
@@ -45,34 +165,48 @@ class ToolCallingAgent:
         Returns:
             The agent's plan, and stores it in memory.
         """
+        if self.debug:
+            self._print_step_header("INITIALIZATION")
+            
         compiled_prompt = "\n".join([
             prompt,
             specifications,
             initialization_prompt,
             self.tools_prompt()
         ])
-        # print(f"Initialization Prompt:\n {compiled_prompt}\n\n")
+        
         response = get_inference(compiled_prompt)
-        print(f"LLM Response:\n {response}\n\n")
+        
+        # if self.debug:
+        #     print(f"{Colors.BRIGHT_CYAN}LLM RESPONSE:{Colors.RESET}")
+        #     print(self._format_content(response))
+        
         parsed_response = self.parse_response(response)
         if "Plan" in parsed_response:
             plan = parsed_response["Plan"]
             self.memory.add_structured_entry("Plan", plan)
-            # print(f"Plan: {plan}")
+            
+            if self.debug:
+                print(f"\n{Colors.BRIGHT_GREEN}PLAN:{Colors.RESET}")
+                print(self._format_content(plan, indent=2))
         else:
             raise ValueError("No valid plan found in the response.")
         return plan
 
-    def thinking_step(self, prompt: str) -> str:
+    def thinking_step(self, prompt: str, step_num: int = None) -> str:
         """
         Perform a single step of reasoning and action.
 
         Args:
             prompt (str): The prompt to process.
+            step_num (int): Current step number for display purposes.
 
         Returns:
             str: The response from the model.
         """
+        if self.debug:
+            self._print_step_header("THINKING", step_num)
+            
         compiled_prompt = "\n".join([
             prompt,
             specifications,
@@ -80,16 +214,27 @@ class ToolCallingAgent:
             thinking_prompt,
             self.tools_prompt()
         ])
-        # print(f"Thinking Prompt: {compiled_prompt}")
-        response = get_inference(compiled_prompt)
-        print(f"Thinking Response: {response}")
         
+        response = get_inference(compiled_prompt)
+        
+        if self.debug:
+            print(f"{Colors.BRIGHT_MAGENTA}THINKING:{Colors.RESET}")
+            
         parsed_response = self.parse_response(response)
-        if "Thought" in parsed_response:
-            self.memory.add_structured_entry("Thought", parsed_response["Thought"])
-        if "Action" in parsed_response:
+        
+        # Display thought
+        if "Thought" in parsed_response and self.debug:
+            thought = parsed_response["Thought"]
+            print(f"{Colors.MAGENTA}{self._format_content(thought, indent=2)}{Colors.RESET}\n")
+            self.memory.add_structured_entry("Thought", thought)
+        
+        # Display action
+        if "Action" in parsed_response and self.debug:
             action_obj = parsed_response["Action"]
-            # Store action in a more readable format
+            # print(f"{Colors.BRIGHT_GREEN}ACTION:{Colors.RESET}")
+            # self._print_json(action_obj)
+            
+            # Store action in memory
             actions_summary = []
             for action in action_obj.get("actions", []):
                 tool_name = action.get("tool")
@@ -101,14 +246,18 @@ class ToolCallingAgent:
         
         return response
         
-    def action_step(self, actions: dict) -> str:
+    def action_step(self, actions: dict, step_num: int = None) -> str:
         """
         Perform the action step of the agent by calling the specified tools.
         Args:
             actions (dict): A dictionary containing the tools to call and their arguments.
+            step_num (int): Current step number for display purposes.
         Returns:
             str: The combined results of all tool calls in JSON format.
         """
+        if self.debug:
+            self._print_step_header("ACTION", step_num)
+            
         results = {}
         tool_count = {}
         
@@ -119,7 +268,10 @@ class ToolCallingAgent:
             
             # Skip if tool not found
             if tool_name not in self.tools:
-                results[f"{tool_name}_error"] = f"Error: Tool '{tool_name}' not found."
+                error_msg = f"Error: Tool '{tool_name}' not found."
+                results[f"{tool_name}_error"] = error_msg
+                if self.debug:
+                    print(f"{Colors.RED}{error_msg}{Colors.RESET}")
                 continue
                 
             # Create unique key for this tool call
@@ -132,10 +284,21 @@ class ToolCallingAgent:
                 key = f"{tool_name}_{tool_args['location']}"
             
             # Call the tool
+            if self.debug:
+                args_str = ", ".join([f"{k}={repr(v)}" for k, v in tool_args.items()])
+                print(f"{Colors.BRIGHT_GREEN}CALLING:{Colors.RESET} {Colors.GREEN}{tool_name}({args_str}){Colors.RESET}")
+                
             try:
-                results[key] = self.tools[tool_name](**tool_args)
+                result = self.tools[tool_name](**tool_args)
+                results[key] = result
+                if self.debug:
+                    print(f"{Colors.BRIGHT_CYAN}RESULT:{Colors.RESET}")
+                    print(f"{Colors.CYAN}{self._format_content(result, indent=2)}{Colors.RESET}\n")
             except Exception as e:
-                results[key] = f"Error: {str(e)}"
+                error_msg = f"Error: {str(e)}"
+                results[key] = error_msg
+                if self.debug:
+                    print(f"{Colors.RED}{error_msg}{Colors.RESET}\n")
         
         # Store formatted results in memory
         if results:
@@ -151,17 +314,21 @@ class ToolCallingAgent:
         # Return JSON results
         return json.dumps({"results": results})
 
-    def observation_step(self, results: str, prompt: str) -> str:
+    def observation_step(self, results: str, prompt: str, step_num: int = None) -> str:
         """
         Process the results of the actions and generate an observation.
 
         Args:
             results (str): The results of the action step.
             prompt (str): The original prompt.
+            step_num (int): Current step number for display purposes.
 
         Returns:
             str: The observation generated by the model.
         """
+        if self.debug:
+            self._print_step_header("OBSERVATION", step_num)
+            
         compiled_prompt = "\n".join([
             prompt,
             specifications,
@@ -169,13 +336,17 @@ class ToolCallingAgent:
             self.memory_prompt(),
             f"Results: {results}",
         ])
-        # print(f"Observation Prompt: {compiled_prompt}")
+        
         response = get_inference(compiled_prompt)
-        print(f"Observation Response: {response}")
         
         parsed_response = self.parse_response(response)
         if "Observation" in parsed_response:
-            self.memory.add_structured_entry("Observation", parsed_response["Observation"])
+            observation = parsed_response["Observation"]
+            self.memory.add_structured_entry("Observation", observation)
+            
+            if self.debug:
+                print(f"{Colors.BRIGHT_YELLOW}OBSERVATION:{Colors.RESET}")
+                print(f"{Colors.YELLOW}{self._format_content(observation, indent=2)}{Colors.RESET}")
         
         return response
 
@@ -192,30 +363,38 @@ class ToolCallingAgent:
         step = 0
         prompt = self.persistent_prompt + prompt
         self.initialize_step(prompt=prompt)
+        
         while step < self.max_steps:
+            step += 1
+            
             # Thinking step
-            thoughts_actions = self.thinking_step(prompt)
+            thoughts_actions = self.thinking_step(prompt, step)
             parsed_response = self.parse_response(thoughts_actions)
             
             # Action step
             if "Action" in parsed_response:
-                results = self.action_step(parsed_response["Action"])
-                print(f"Action Results: {results}")
+                results = self.action_step(parsed_response["Action"], step)
                 
                 # Observation step
-                observation = self.observation_step(results, prompt)
+                observation = self.observation_step(results, prompt, step)
                 parsed_response = self.parse_response(observation)
 
                 # if the model has a final answer, return it and stop
                 if "Final_Answer" in parsed_response:
                     final_answer = parsed_response["Final_Answer"]
                     self.memory.add_structured_entry("Final_Answer", final_answer)
-                    print(f"Final Answer: {final_answer}")
+                    
+                    if self.debug:
+                        self._print_step_header("FINAL ANSWER")
+                        print(f"{Colors.GREEN}{self._format_content(final_answer)}{Colors.RESET}\n")
+                        
                     return final_answer
 
-            step += 1
-
-        print(f"Memory: {self.memory.get_all()}")
+        if self.debug:
+            print(f"\n{Colors.RED}MAX STEPS REACHED WITHOUT FINAL ANSWER{Colors.RESET}")
+            print(f"\n{Colors.BRIGHT_BLACK}Memory dump:{Colors.RESET}")
+            print(self._format_content(self.memory.get_all()))
+            
         raise ValueError("Max steps reached without finding a final answer.") 
 
     def contains_final_answer(self, response: str) -> bool:
@@ -230,7 +409,6 @@ class ToolCallingAgent:
         """
         return "Final_Answer" in response
     
-
     def parse_response(self, response: str) -> dict:
         """
         Parse the model's response to extract all matches for action, plan, thought, observation, or final answer.
@@ -265,10 +443,10 @@ class ToolCallingAgent:
         """
         components = {}
         patterns = {
-            "Plan": r"Plan:?\s*\{?(.*?)\}?",
-            "Thought": r"Thought:?\s*\{?(.*?)\}?",
-            "Observation": r"Observation:?\s*\{?(.*?)\}?",
-            "Final_Answer": r"Final_Answer:?\s*\{?(.*?)\}?"
+            "Plan": r"Plan:?\s*\{?(.*?)\}?(?=\n\n|$)",
+            "Thought": r"Thought:?\s*\{?(.*?)\}?(?=\n\n|Action:|$)",
+            "Observation": r"Observation:?\s*\{?(.*?)\}?(?=\n\n|$)",
+            "Final_Answer": r"Final_Answer:?\s*\{?(.*?)\}?(?=\n\n|$)"
         }
         
         for key, pattern in patterns.items():
@@ -298,8 +476,9 @@ class ToolCallingAgent:
                 action_json = content
                 components["Action"] = self._normalize_action_json(action_json)
             except json.JSONDecodeError as e:
-                print(f"JSON parsing error: {e}")
-                print(f"Content: {content}")
+                if self.debug:
+                    print(f"{Colors.RED}JSON parsing error: {e}{Colors.RESET}")
+                    print(f"{Colors.RED}Content: {content}{Colors.RESET}")
                 raise ValueError(f"Invalid JSON format in the Action response. Error: {str(e)}")
         
         return components
@@ -329,7 +508,10 @@ class ToolCallingAgent:
             
         return parsed_json
 
+
+### OUTDATED
 if __name__ == "__main__":
+    raise("This is an outdated test script. Please refer to the test_agent.py file for updated tests.")
     # Import necessary components
     from Weather_Agent import get_weather
     

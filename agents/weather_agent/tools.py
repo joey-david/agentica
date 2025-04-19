@@ -1,6 +1,5 @@
-from utils.Agent import ToolCallingAgent
+from core.tool import tool
 import requests
-from utils.Tool import tool
 import os
 from dotenv import load_dotenv
 
@@ -13,8 +12,8 @@ def get_weather(location: str) -> str:
     Returns:
         str: A string containing the weather information.
     """
-    load_dotenv()
-    api_key = os.getenv("OPENWEATHER_API")  # Replace with your actual API key
+    load_dotenv(dotenv_path="auth/weather_agent/.env")
+    api_key = os.getenv("OPENWEATHER_API")
     base_url = "https://api.openweathermap.org/data/2.5/weather"
     params = {
         "q": ''.join(c if c.isalnum() or c==" " else '' for c in location),
@@ -42,13 +41,3 @@ def get_weather(location: str) -> str:
         return f"Failed to fetch weather data: {e}"
     except KeyError:
         return "Could not retrieve weather information. Please check the city name or try again later."
-
-Agent = ToolCallingAgent(
-    [get_weather],
-    persistent_prompt="You are a weather assistant. You can provide weather information for any city, using the tools at your disposal. Make sure to follow the thought/action/observation loop.",
-)
-
-if __name__ == "__main__":
-    city_name = "Tokyo"
-    weather_info = Agent.run(f"Should I wear a coat in Albertville?")
-    print(weather_info)
