@@ -1,36 +1,61 @@
-import sys
-import os
-from dotenv import load_dotenv
-from utils.Agent import ToolCallingAgent
-login()
+from core.agent import ToolCallingAgent
+from tools import (
+    login,
+    getUnclassifiedEmails,
+    getUnreadUnclassifiedEmails,
+    getExistingLabels,
+    createLabels,
+    deleteLabels,
+    sortEmails
+)
 
-def prompt(emailsToSort: int) -> str:
-    f"""
-    You are an expert assistant specialized in classification.
-    Your task is to retrieve and classify the {emailsToSort} most recent emails into existing folders using the tools are your disposal.
-    """
+Agent = ToolCallingAgent(
+    [login, getUnclassifiedEmails, getUnreadUnclassifiedEmails, getExistingLabels, createLabels, deleteLabels, sortEmails],
+    persistent_prompt="""You are a personal assistant tasked with classifying emails.
+    Don't hesitate to make multiple tool calls at once, or classify multiple emails at once for efficiency.
+    As a rule of thumb, you should never create a label just for one email. Be very conservative in creating label, optimally, you should create none and assume that the existing ones are enough.
+    Don't try to get too many emails at once, retrieve batches of 10, or even less if you deem it necessary.""",
+    max_steps=500
+)
 
 if __name__ == "__main__":
-    load_dotenv(
-        dotenv_path="../.env"
-    )
-    
-    # initiate the agent and grant it its tools
-    agent = ToolCallingAgent(
-        tools=[
-
-        ],
-        model=HfApiModel(
-            token=os.getenv("HF_API_KEY"),
-            model_id=
-        )
-    )
-    
-    # get the number of emails to sort
-    if len(sys.argv) < 2:
-        emailsToSort = 50
-    else:
-        emailsToSort = sys.argv[1]
-    
-    result = agent.run(prompt(emailsToSort))
-    print(result)
+    print("Welcome to the Email Agent!")
+    print("""                                                              
+  
+                               @                               
+                             @@@@@                             
+                              @@@                              
+                               @                               
+                       @@@@@@@@@@@@@@@@@                       
+                   @@@@                 @@@@                   
+                  @@                       @@                  
+                 @                           @                 
+               @@@                           @@@               
+              @@@      @@@@         @@@@     @@@@              
+              @@@      @@@@         @@@@      @@@              
+              @@@       @@           @@      @@@@              
+              @@@@         @       @         @@@@              
+                @@          @@@@@@@          @@                
+                 @@                         @@                 
+                   @@@@                 @@@@                   
+                        @@@@@@@@@@@@@@@                        
+                  @@@@@@@@@@@@@@@@@@@@@@@@@@@                  
+              @@@@                           @@@@              
+            @@  @@ @@@@@@@@@@@@@@@@@@@@@@@@@ @@  @@            
+           @@@  @@ @@@                   @@@ @@  @@@           
+          @@  @@@@ @@ @@@             @@@ @@ @@@@  @@          
+         @@    @@@ @@    @@         @@    @@ @@@    @@         
+         @@@@@@@@@@@@@     @@     @@     @@@@@@@@@@@@@         
+         @@    @@     @@  @@ @@ @@ @@  @@     @@    @@         
+         @    @@     @@ @@           @@ @@     @@    @         
+         @@   @@     @@@               @@@     @@   @@         
+            @@@@@@@@@@                   @@@@@@@@@@            
+                @@ @@@@@@@@@@@@@@@@@@@@@@@@@ @@                
+                 @                           @                 
+                  @@@                     @@@                  
+                                                                                
+""")
+    print("I'll sort emails lying around in your inbox, either only the unread ones or all of them. Just tell me how many you need me to sort, and what I should focus on!")
+    prompt = input("Prompt: ")
+    results = Agent.run(prompt)
+    print(results)

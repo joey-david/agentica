@@ -8,26 +8,31 @@ from typing import List, Dict, Any
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Now import the tools
-from MailSorter.mail_sorting_tools import (
+from tools import (
     login,
     getUnclassifiedEmails,
     getUnreadUnclassifiedEmails,
     getExistingLabels,
     createLabels,
+    deleteLabels,
     sortEmails
 )
 
 def pretty_print(data):
-    """Helper function to pretty print JSON data"""
+    """Helper function to pretty print JSON data with grayish yellow color"""
+    def colorize(text):
+        # ANSI escape code for grayish yellow (light yellow)
+        return f"\033[93m{text}\033[0m"
+
     if isinstance(data, list) and data:
         if isinstance(data[0], dict):
-            print(json.dumps(data, indent=2))
+            print(colorize(json.dumps(data, indent=2)))
         else:
-            print(data)
+            print(colorize(str(data)))
     elif isinstance(data, dict):
-        print(json.dumps(data, indent=2))
+        print(colorize(json.dumps(data, indent=2)))
     else:
-        print(data)
+        print(colorize(str(data)))
 
 
 def test_login():
@@ -78,6 +83,31 @@ def test_create_labels():
     except Exception as e:
         print(f"❌ Failed to create labels: {e}")
         return False
+
+def test_delete_labels():
+    """Test deleting the created labels"""
+    print("\n=== Testing deleteLabels ===")
+    test_labels = ["Test_Label_1", "Test_Label_2"]
+    
+    # First check if test labels exist
+    existing_labels = getExistingLabels()
+    existing_label_names = [label['name'] for label in existing_labels]
+    
+    labels_to_delete = [l for l in test_labels if l in existing_label_names]
+    
+    if not labels_to_delete:
+        print("No test labels to delete, skipping deletion")
+        return True
+        
+    try:
+        result = deleteLabels(labels_to_delete)
+        print("Label deletion result:")
+        pretty_print(result)
+        return True
+    except Exception as e:
+        print(f"❌ Failed to delete labels: {e}")
+        return False
+
 
 
 def test_get_unclassified_emails(limit=5):

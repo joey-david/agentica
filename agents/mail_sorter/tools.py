@@ -4,48 +4,73 @@ from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
-from utils.Tool import Tool, tool
+from core.tool import Tool, tool
 from typing import List, Dict, Tuple, Any
 
 
 # Scopes: the permissions that the application will request from the user
 SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
+@tool
 def login():
     load_dotenv()
 
     creds = None
-    token_path = 'token.json'
-    credentials_path = 'credentials.json'
+    token_path = 'auth/mail_sorter/user_credentials.json'
+    credentials_path = 'auth/mail_sorter/credentials.json'
 
-    # Load existing credentials
-    if os.path.exists(token_path):
-        creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+    # Step 1: Try to load credentials only if file exists and is not empty
+    if os.path.exists(token_path) and os.path.getsize(token_path) > 0:
+        try:
+            creds = Credentials.from_authorized_user_file(token_path, SCOPES)
+        except Exception as e:
+            print(f"⚠️ Invalid credentials file. Will prompt login. Reason: {e}")
+            creds = None
 
-    # Refresh credentials if expired
+    # Step 2: Refresh expired credentials if possible
     if creds and creds.expired and creds.refresh_token:
-        creds.refresh(Request())
-    else:
-        # Initiate OAuth flow
+        try:
+            creds.refresh(Request())
+        except Exception as e:
+            print(f"⚠️ Failed to refresh credentials. Will prompt login. Reason: {e}")
+            creds = None
+
+    # Step 3: If no valid creds, trigger browser login and save token
+    if not creds or not creds.valid:
+        if not os.path.exists(credentials_path):
+            raise FileNotFoundError(
+                f"Missing '{credentials_path}'! Get this from the Google Cloud Console "
+                "(OAuth client ID, Desktop App, download JSON)."
+            )
+        # Inside your login() function, after the flow line:
+        print("🔐 No valid credentials found. Opening browser for Google login...")
         flow = InstalledAppFlow.from_client_secrets_file(credentials_path, SCOPES)
         creds = flow.run_local_server(port=0)
 
-        # Save the credentials for future use
+        # 👇 Add these debug prints
+        print(f"✅ Received credentials: {creds is not None}")
+        print(f"📄 Token JSON preview: {creds.to_json()[:100]}...")  # peek at the first 100 chars
+
+        # Save token
+        os.makedirs(os.path.dirname(token_path), exist_ok=True)
         with open(token_path, 'w') as token_file:
             token_file.write(creds.to_json())
+        print("💾 Token saved.")
 
-    service = build('gmail', 'v1', credentials=creds)
-    return service
+
+    # Step 5: Return Gmail API service
+    return build('gmail', 'v1', credentials=creds)
+
 
 
 ### Let's see if the snippet is enough to sort the emails
 @tool
-def getUnclassifiedEmails(max_emails: int = 100) -> List[Dict[str, Any]]:
+def getUnclassifiedEmails(number: int = 20) -> List[Dict[str, Any]]:
     """
     Returns a list of unclassified emails from the inbox, wether read or unread.
     
     Arguments:
-        max_emails (int): Maximum number of emails to retrieve.
+        number (int): Maximum number of emails to retrieve.
         
     Returns:
         List[Dict[str, Any]]: A list of email details including id, subject, sender, date, and snippet.
@@ -56,7 +81,7 @@ def getUnclassifiedEmails(max_emails: int = 100) -> List[Dict[str, Any]]:
     results = service.users().messages().list(
         userId='me',
         labelIds=['INBOX'],
-        maxResults=max_emails
+        maxResults=number
         ).execute()
     # extract the messages from the request
     messages = results.get('messages', [])
@@ -87,12 +112,12 @@ def getUnclassifiedEmails(max_emails: int = 100) -> List[Dict[str, Any]]:
     return emails
 
 @tool
-def getUnreadUnclassifiedEmails(max_emails: int = 100) -> List[Dict[str, Any]]:
+def getUnreadUnclassifiedEmails(number: int = 20) -> List[Dict[str, Any]]:
     """
     Returns a list of unread unclassified emails from the inbox.
     
     Arguments:
-        max_emails (int): Maximum number of emails to retrieve.
+        number (int): Maximum number of emails to retrieve.
         
     Returns:
         List[Dict[str, Any]]: A list of email details including id, subject, sender, date, and snippet.
@@ -104,7 +129,7 @@ def getUnreadUnclassifiedEmails(max_emails: int = 100) -> List[Dict[str, Any]]:
         userId='me',
         labelIds=['INBOX'],
         q='is:unread',
-        maxResults=max_emails
+        maxResults=number
         ).execute()
     # extract the messages from the request
     messages = results.get('messages', [])
@@ -168,8 +193,8 @@ def createLabels(names: List[str]) -> List[Dict[str, str]]:
     
     try:
         # Check if the labels already exist
-        number_existing_labels = getExistingLabels().__len__
-        if number_existing_labels + names.__len__ > 25:
+        number_existing_labels = len(getExistingLabels())
+        if number_existing_labels + len(names) > 25:
             raise Exception(f"Since {number_existing_labels} labels already exist, you can only create {25 - number_existing_labels} more labels. The maximum amount allowed is 25.")
     except Exception as e:
         return [{'error': str(e)}]
@@ -184,13 +209,46 @@ def createLabels(names: List[str]) -> List[Dict[str, str]]:
             results.append({'name': name, 'error': str(e)})
     
     return results
+
+
+@tool
+def deleteLabels(names: List[str]) -> List[Dict[str, str]]:
+    """
+    Deletes multiple Gmail labels (folders).
+    Be careful, this should ONLY be used to undo the creation a useless label.
     
+    Arguments:
+        names (List[str]): List of names for the labels to delete.
+        
+    Returns:
+        List[Dict[str, str]]: Information about the deleted labels or errors if any.
+    """
+    service = login()
+    results = []
+    
+    for name in names:
+        # Get the label ID
+        labels = getExistingLabels()
+        label_id = next((l['id'] for l in labels if l['name'] == name), None)
+        
+        if not label_id:
+            results.append({'name': name, 'error': 'Label not found'})
+            continue
+        
+        # Delete the label
+        try:
+            service.users().labels().delete(userId='me', id=label_id).execute()
+            results.append({'name': name, 'status': 'deleted'})
+        except Exception as e:
+            results.append({'name': name, 'error': str(e)})
+    
+    return results
+
 
 @tool
 def sortEmails(
     emails: List[Dict[str, str]],
-    label: str,
-    mark_as_read: bool = False
+    label: str
 ) -> List[Dict[str, str]]:
     """
     Sorts emails into a specified label (folder).
@@ -198,7 +256,6 @@ def sortEmails(
     Arguments:
         emails (List[Dict[str, str]]): List of email IDs to sort.
         label (str): Name of the label to sort emails into.
-        mark_as_read (bool): Whether to mark the emails as read.
         
     Returns:
         List[Dict[str, str]]: A list of dictionaries containing email ID and status.
@@ -217,7 +274,7 @@ def sortEmails(
     for email in emails:
         try:
             # Modify the email
-            msg = service.users().messages().modify(
+            service.users().messages().modify(
                 userId='me',
                 id=email['id'],
                 body={
@@ -225,14 +282,6 @@ def sortEmails(
                     'removeLabelIds': ['INBOX']
                 }
             ).execute()
-            
-            # Mark as read if specified
-            if mark_as_read:
-                service.users().messages().modify(
-                    userId='me',
-                    id=email['id'],
-                    body={'removeLabelIds': ['UNREAD']}
-                ).execute()
             
             results.append({'id': email['id'], 'status': 'sorted'})
         except Exception as e:

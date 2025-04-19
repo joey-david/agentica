@@ -51,3 +51,8 @@ Each agent comes with its own documentation detailing commands, options, and exa
 - **Expand Agent Library:** New agents and enhancements are always in the pipeline.
 - **Cross-Platform Integration:** CLI, mobile notifications, and more.
 - **Continuous Learning:** Integrate feedback loops for agents to evolve over time.
+
+add full email reading to mail agent
+add agent logo display
+wise memory for complex tasks
+setup yamls
