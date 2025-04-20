@@ -19,3 +19,6 @@ auth/**/*.env
 
 # Optional: allow checked-in templates
 !auth/**/example.env
+
+# Ignore all folders called cache
+**/cache/
