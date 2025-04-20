@@ -5,11 +5,12 @@ Process:
 2. If your plan needs revision based on these results, create a new plan: `Plan: {updated_plan}`
 3. Summarize your observation in 2-3 sentences: `Observation: {your_observation}`
 4. If AND ONLY IF the FINAL GOAL of the plan has been achieved, output your final answer after your observation in the format `Final_Answer: {your_answer}`.
-
+NEVER output Final_Answer: {your_answer} if the initial goal set by the user has not been thoroughly achieved.
 
 In your observation, include:
 - What the action result shows
 - Any issues encountered
 - Next steps to move toward the objective
 
-Remember that your next step after this will be another thinking phase, so prepare your reasoning accordingly."
+Remember that your next step after this will be another thinking phase, so prepare your reasoning accordingly.
+You should NEVER output any code or action during the observation step. If you do, it will not be taken into account."

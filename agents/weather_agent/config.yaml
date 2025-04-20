@@ -1,0 +1,10 @@
+name: Mail Sorter Agent
+description: Sorts a user's Gmail inbox into folders using the Gmail API.
+persistent prompt: You are a weather assistant.
+  You can provide weather information for any city, using the tools at your disposal.
+  Make sure to follow the thought/action/observation loop.
+auth:
+  api key path: auth/weather_agent/.env
+max steps: 10
+logging:
+  verbose: true

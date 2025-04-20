@@ -3,7 +3,6 @@ import yaml
 import re
 from core.memory import Memory
 from core.inference import get_inference
-from core.tool import Tool, tool
 from core.utils.display import Display, Colors
 
 # Load prompts
@@ -17,7 +16,6 @@ class ToolCallingAgent:
     def __init__(self, tools: list, persistent_prompt: str, memory_instance: Memory = None, max_steps: int = 10, debug: bool = True):
         """
         Initialize the agent with tools and a model inference function.
-
         Args:
             tools (list): A list of Tool objects.
             persistent_prompt (str): A prompt to be used for the model inference at every step.
@@ -53,27 +51,48 @@ class ToolCallingAgent:
             The agent's plan, and stores it in memory.
         """
         self.display.print_step_header("INITIALIZATION")
-            
-        compiled_prompt = "\n".join([
-            prompt,
-            specifications,
-            initialization_prompt,
-            self.tools_prompt()
-        ])
         
-        response = get_inference(compiled_prompt)
-        parsed_response = self.parse_response(response)
+        max_retries = 3
+        retry_count = 0
         
-        if "Plan" in parsed_response:
-            plan = parsed_response["Plan"]
-            self.memory.add_structured_entry("Plan", plan)
+        while retry_count < max_retries:
+            compiled_prompt = "\n".join([
+                prompt,
+                specifications,
+                initialization_prompt,
+                self.tools_prompt()
+            ])
             
-            self.display.print_step_header("PLAN")
-            print(f"{Colors.BRIGHT_GREEN}PLAN:{Colors.RESET}")
-            print(self.display.format_content(plan, indent=2))
-        else:
-            raise ValueError("No valid plan found in the response.")
-        return plan
+            if retry_count > 0:
+                # Add feedback for retry attempts
+                compiled_prompt += f"\n\nI couldn't identify a properly formatted Plan in your previous response. Please ensure you include:\n- Plan: {{your detailed plan}}\n\nThis is retry attempt {retry_count} of {max_retries}."
+                
+            response = get_inference(compiled_prompt)
+            
+            try:
+                parsed_response = self.parse_response(response)
+                
+                if "Plan" in parsed_response:
+                    plan = parsed_response["Plan"]
+                    self.memory.add_structured_entry("Plan", plan)
+                    
+                    self.display.print_step_header("PLAN")
+                    print(f"{Colors.BRIGHT_GREEN}PLAN:{Colors.RESET}")
+                    print(self.display.format_content(plan, indent=2))
+                    return plan
+                else:
+                    # No valid plan found
+                    retry_count += 1
+                    self.display.print_error(f"No valid plan found in the response, retrying ({retry_count}/{max_retries})...")
+                    
+            except ValueError as e:
+                # Parse error occurred
+                retry_count += 1
+                self.display.print_error(f"Failed to parse response: {str(e)}")
+                self.display.print_error(f"Retrying ({retry_count}/{max_retries})...")
+        
+        # If we've exhausted retries, we have to raise an error as we can't continue without a plan
+        raise ValueError("Failed to get a valid plan after multiple attempts.")
 
     def thinking_step(self, prompt: str, step_num: int = None) -> str:
         """
@@ -87,39 +106,84 @@ class ToolCallingAgent:
             str: The response from the model.
         """
         self.display.print_step_header("THINKING", step_num)
+        
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            compiled_prompt = "\n".join([
+                prompt,
+                specifications,
+                self.memory_prompt(),
+                thinking_prompt,
+                self.tools_prompt()
+            ])
             
-        compiled_prompt = "\n".join([
-            prompt,
-            specifications,
-            self.memory_prompt(),
-            thinking_prompt,
-            self.tools_prompt()
-        ])
-        
-        response = get_inference(compiled_prompt)
-        parsed_response = self.parse_response(response)
-        
-        # Display and store thought
-        if "Thought" in parsed_response:
-            thought = parsed_response["Thought"]
-            self.display.print_thought(thought)
-            self.memory.add_structured_entry("Thought", thought)
-        
-        # Store action in memory
-        if "Action" in parsed_response:
-            action_obj = parsed_response["Action"]
+            if retry_count > 0:
+                # Add feedback for retry attempts
+                compiled_prompt += f"""
+
+                I couldn't identify a properly formatted Thought or Action in your previous response. Please ensure you include:
+
+                - Thought: Your thought process here
+                - Action: JSON with this structure:
+                {{
+                    "actions": [
+                    {{
+                        "tool": "tool_name",
+                        "args": {{
+                        "arg_name": value
+                        }}
+                    }}
+                    ]
+                }}
+
+                This is retry attempt {retry_count} of {max_retries}.
+                """            
+
+            response = get_inference(compiled_prompt)
             
-            actions_summary = []
-            for action in action_obj.get("actions", []):
-                tool_name = action.get("tool")
-                tool_args = action.get("args", {})
-                actions_summary.append(f"{tool_name}({', '.join([f'{k}={v}' for k, v in tool_args.items()])})")
-            
-            if actions_summary:
-                self.memory.add_structured_entry("Action", ", ".join(actions_summary))
+            try:
+                parsed_response = self.parse_response(response)
+                
+                # Display and store thought
+                if "Thought" in parsed_response:
+                    thought = parsed_response["Thought"]
+                    self.display.print_thought(thought)
+                    self.memory.add_structured_entry("Thought", thought)
+                
+                # Store action in memory
+                if "Action" in parsed_response:
+                    action_obj = parsed_response["Action"]
+                    
+                    actions_summary = []
+                    for action in action_obj.get("actions", []):
+                        tool_name = action.get("tool")
+                        tool_args = action.get("args", {})
+                        actions_summary.append(f"{tool_name}({', '.join([f'{k}={v}' for k, v in tool_args.items()])})")
+                    
+                    if actions_summary:
+                        self.memory.add_structured_entry("Action", ", ".join(actions_summary))
+                    
+                    # If we have at least a valid Action, consider this step successful
+                    return response
+                    
+                # No valid component found, but parse_response didn't raise an error
+                # We'll retry with more explicit instructions
+                retry_count += 1
+                self.display.print_error(f"No Action found in response, retrying ({retry_count}/{max_retries})...")
+                    
+            except ValueError as e:
+                # Parse error occurred
+                retry_count += 1
+                self.display.print_error(f"Failed to parse response: {str(e)}")
+                self.display.print_error(f"Retrying ({retry_count}/{max_retries})...")
         
-        return response
-        
+        # If we've exhausted retries, create a minimal action to continue
+        self.display.print_error("Failed to get a valid thinking response after multiple attempts.")
+        raise ValueError("Failed to get a valid thinking response with action after multiple retries.")
+    
+
     def action_step(self, actions: dict, step_num: int = None) -> str:
         """
         Perform the action step of the agent by calling the specified tools.
@@ -222,24 +286,55 @@ class ToolCallingAgent:
             str: The observation generated by the model.
         """
         self.display.print_step_header("OBSERVATION", step_num)
+        
+        max_retries = 3
+        retry_count = 0
+        
+        while retry_count < max_retries:
+            compiled_prompt = "\n".join([
+                prompt,
+                specifications,
+                observation_prompt,
+                self.memory_prompt(),
+                f"Results: {results}",
+            ])
             
-        compiled_prompt = "\n".join([
-            prompt,
-            specifications,
-            observation_prompt,
-            self.memory_prompt(),
-            f"Results: {results}",
-        ])
+            if retry_count > 0:
+                # Add feedback for retry attempts
+                compiled_prompt += f"\n\nI couldn't identify a properly formatted Observation or Final_Answer in your previous response. Please ensure you include either:\n- Observation: {{your observation}}\n- Final_Answer: {{your answer}}\n\nThis is retry attempt {retry_count} of {max_retries}."
+                
+            response = get_inference(compiled_prompt)
+            
+            try:
+                parsed_response = self.parse_response(response)
+                
+                if "Observation" in parsed_response:
+                    observation = parsed_response["Observation"]
+                    self.memory.add_structured_entry("Observation", observation)
+                    self.display.print_observation(observation)
+                    return response
+                elif "Final_Answer" in parsed_response:
+                    # If model directly gave a final answer, that's ok too
+                    return response
+                else:
+                    # No valid component found, but parse_response didn't raise an error
+                    # We'll retry with more explicit instructions
+                    retry_count += 1
+                    self.display.print_error(f"No valid Observation or Final_Answer found, retrying ({retry_count}/{max_retries})...")
+                    
+            except ValueError as e:
+                # Parse error occurred
+                retry_count += 1
+                self.display.print_error(f"Failed to parse response: {str(e)}")
+                self.display.print_error(f"Retrying ({retry_count}/{max_retries})...")
         
-        response = get_inference(compiled_prompt)
-        parsed_response = self.parse_response(response)
+        # If we've exhausted retries, create a default observation to continue the flow
+        self.display.print_error("Failed to get a valid observation after multiple attempts.")
+        default_observation = "I couldn't generate a proper observation from the results. Let me continue with what I know so far."
+        self.memory.add_structured_entry("Observation", default_observation)
         
-        if "Observation" in parsed_response:
-            observation = parsed_response["Observation"]
-            self.memory.add_structured_entry("Observation", observation)
-            self.display.print_observation(observation)
-        
-        return response
+        # Create a minimal valid response for the agent to continue
+        return f"Observation: {default_observation}"
 
     def run(self, prompt: str) -> str:
         """
@@ -253,82 +348,76 @@ class ToolCallingAgent:
         """
         step = 0
         prompt = self.persistent_prompt + prompt
-        self.initialize_step(prompt=prompt)
+        
+        try:
+            self.initialize_step(prompt=prompt)
+        except ValueError as e:
+            self.display.print_error(f"Initialization error: {str(e)}")
+            return f"I encountered an error during initialization: {str(e)}"
         
         while step < self.max_steps:
             step += 1
             
-            # Thinking step
-            thoughts_actions = self.thinking_step(prompt, step)
-            parsed_response = self.parse_response(thoughts_actions)
-            
-            # Action step
-            if "Action" in parsed_response:
-                results = self.action_step(parsed_response["Action"], step)
+            try:
+                # Thinking step
+                thoughts_actions = self.thinking_step(prompt, step)
+                parsed_response = self.parse_response(thoughts_actions)
                 
-                # Observation step
-                observation = self.observation_step(results, prompt, step)
-                parsed_response = self.parse_response(observation)
-
-                # if the model has a final answer, return it and stop
-                if "Final_Answer" in parsed_response:
-                    final_answer = parsed_response["Final_Answer"]
-                    self.memory.add_structured_entry("Final_Answer", final_answer)
+                # Action step
+                if "Action" in parsed_response:
+                    results = self.action_step(parsed_response["Action"], step)
                     
-                    self.display.print_step_header("FINAL ANSWER")
-                    self.display.print_final_answer(final_answer)
+                    # Observation step
+                    observation = self.observation_step(results, prompt, step)
+                    parsed_response = self.parse_response(observation)
+
+                    # if the model has a final answer, return it and stop
+                    if "Final_Answer" in parsed_response:
+                        final_answer = parsed_response["Final_Answer"]
+                        self.memory.add_structured_entry("Final_Answer", final_answer)
                         
-                    return final_answer
+                        self.display.print_step_header("FINAL ANSWER")
+                        self.display.print_final_answer(final_answer)
+                            
+                        return final_answer
+            except ValueError as e:
+                self.display.print_error(f"Error in step {step}: {str(e)}")
+                if step >= self.max_steps - 1:
+                    break
+                # Log the error but continue to the next step
+                self.memory.add_structured_entry("Error", f"Error in step {step}: {str(e)}")
+                continue
 
         self.display.print_max_steps_reached()
         print(f"\n{Colors.BRIGHT_BLACK}Memory dump:{Colors.RESET}")
         print(self.display.format_content(self.memory.get_all()))
             
-        raise ValueError("Max steps reached without finding a final answer.") 
+        return "I couldn't complete the task within the maximum number of steps. Here's what I know so far: " + \
+            self.memory.get_history()
 
     def contains_final_answer(self, response: str) -> bool:
-        """
-        Check if the response contains a final answer.
-
-        Args:
-            response (str): The model's response.
-
-        Returns:
-            bool: True if a final answer is found, False otherwise.
-        """
         return "Final_Answer" in response
     
     def parse_response(self, response: str) -> dict:
-        """
-        Parse the model's response to extract all matches for action, plan, thought, observation, or final answer.
-
-        Args:
-            response (str): The model's response.
-
-        Returns:
-            dict: A dictionary where keys are the types (Plan, Thought, Action, Observation, Final_Answer) 
-                    and values are the corresponding content.
-        """
         parsed_response = {}
         
         # Extract different components from the response
-        parsed_response.update(self._extract_text_components(response))
-        parsed_response.update(self._extract_action_component(response))
+        text_components = self._extract_text_components(response)
+        action_components = self._extract_action_component(response)
+        
+        parsed_response.update(text_components)
+        parsed_response.update(action_components)
         
         if not parsed_response:
-            raise ValueError("No valid patterns found in the response.")
+            # Provide a detailed error message about what we were looking for
+            expected_components = "Plan, Thought, Action, Observation, or Final_Answer"
+            raise ValueError(f"No valid patterns found in the response. Expected at least one of: {expected_components}")
 
         return parsed_response
 
     def _extract_text_components(self, response: str) -> dict:
         """
         Extract text components (Plan, Thought, Observation, Final_Answer) from the response.
-        
-        Args:
-            response (str): The model's response.
-            
-        Returns:
-            dict: Dictionary of extracted text components
         """
         components = {}
         patterns = {
@@ -348,12 +437,6 @@ class ToolCallingAgent:
     def _extract_action_component(self, response: str) -> dict:
         """
         Extract and parse the Action component from the response.
-        
-        Args:
-            response (str): The model's response.
-            
-        Returns:
-            dict: Dictionary with the Action key if found
         """
         components = {}
         pattern = r"Action:?\s*(\{.*\})"
@@ -374,12 +457,6 @@ class ToolCallingAgent:
     def _normalize_action_json(self, action_json: str) -> dict:
         """
         Normalize and parse the action JSON string.
-        
-        Args:
-            action_json (str): The JSON string to normalize and parse.
-            
-        Returns:
-            dict: The parsed JSON object.
         """
         # Check if the JSON structure is correct
         parsed_json = json.loads(action_json)

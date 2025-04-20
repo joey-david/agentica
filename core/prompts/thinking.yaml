@@ -3,6 +3,7 @@
 CRITICAL RULE: You must use EXACT tool names and argument names as provided. Never modify, abbreviate, or rename them.
 
 Process:
+0. If the last observation state infered that tool use was necessary, make sure to actually use the corresponsing tools, don't assume it was done and skip them.
 1. First, reflect on the current state and output your thoughts as `Thought: {your_thought}`.
 2. Then, decide which tool(s) to call and format as a valid JSON object using this EXACT structure:
 

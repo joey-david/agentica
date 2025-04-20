@@ -1,23 +1,65 @@
 # Agentica
 
-Agentica is a curated collection of LLM agents I've built over time—ranging from slick daily utilities to wild proofs of concept. Each agent is modular, purpose-driven, and a little rebellious in its own way.
+Agentica is a powerful framework for creating, running, and managing large language model (LLM) agents. Built from the ground up with modularity and extensibility in mind, it provides a unified infrastructure that makes it easy to create purpose-driven agents for a wide range of tasks.
+
+## Architecture
+
+The framework features a completely custom-built agent architecture with a structured thought/action/observation loop:
+
+- **Core Agent Framework**: Provides the foundation for all agents with memory management, prompt handling, and tool execution
+- **Modular Design**: Each agent is a self-contained module with its own tools, configuration, and purpose
+- **Declarative Configuration**: YAML-based configuration makes it easy to adjust agent behavior without code changes
+- **Tool System**: Powerful decorator-based system for easily creating tools that agents can use to interact with APIs and services
+
+### Repo structure:
+```bash
+.
+├── agents
+│   ├── mail_sorter
+│   │   ├── agent.py
+│   │   ├── config.yaml
+│   │   ├── __init__.py
+│   │   ├── test_tools.py
+│   │   └── tools.py
+│   └── weather_agent
+│       ├── agent.py
+│       ├── config.yaml
+│       └── tools.py
+├── auth
+│   ├── mail_sorter
+│   │   ├── credentials.json
+│   │   └── user_credentials.json
+│   └── weather_agent
+├── core
+│   ├── agent.py
+│   ├── inference.py
+│   ├── __init__.py
+│   ├── memory.py
+│   ├── prompts
+│   │   ├── initialization.yaml
+│   │   ├── memory.yaml
+│   │   ├── observation.yaml
+│   │   ├── specifications.yaml
+│   │   └── thinking.yaml
+│   ├── tool.py
+│   └── utils
+│       ├── config.py
+│       └── display.py
+├── main.py
+├── README.md
+├── requirements.txt
+└── setup.py
+```
 
 ## Current Agents
 
-### Memorable
-Memorable is your on-demand memory enhancer. It logs your interactions, recalls context with near psychic precision, and helps you navigate complex conversations without missing a beat.  
-*Status: Stable & evolving*
+- **Mail Sorter**: Organizes Gmail inbox by intelligently sorting emails into appropriate folders using the Gmail API
+- **Weather Agent**: Provides detailed weather information for any location using real-time weather data
 
-### Tool Builder
-A specific agent used to create specific tools (api, programs) to enhance the capabilities of other agents.
+## In development
 
-<!-- Add details about other agents below as they’re added -->
-
-## Features
-
-- **LLM-Powered Brilliance:** Harnessing the latest in large language models for smart, contextual responses.
-- **Modular Architecture:** Plug-and-play design lets you integrate or experiment with individual agents.
-- **Real-World Utility:** From daily reminders to deep-dive research, these agents are built to perform.
+- **Internet Researcher**: Performs comprehensive web research on any topic with advanced search and synthesis capabilities
+- **Code Writer**: Generates, explains, and refines code in various programming languages based on user requirements
 
 ## Installation & Setup
 
@@ -35,24 +77,47 @@ A specific agent used to create specific tools (api, programs) to enhance the ca
    ```
 
 3. **Configure as Needed:**  
-   Each agent has its own settings file. Check the individual READMEs for specifics.
+   Each agent has its own settings file in config.yaml
 
 ## Usage
 
-Run your favorite agent directly from the command line. For example, to launch Memorable:
-```bash
-python memorable.py
-```
-Each agent comes with its own documentation detailing commands, options, and examples.
+Run the main command-line interface to select and launch agents:
 
+```bash
+python main.py
+```
+
+Or run a specific agent directly:
+
+```bash
+python main.py --agent mail_sorter
+```
+
+Each agent will guide you through its capabilities when launched.
+
+## Creating New Agents
+
+Creating a new agent is straightforward:
+
+1. Create a directory in `agents/<your_agent_name>/`
+2. Add an agent.py file that defines an Agent object using the `ToolCallingAgent` class
+3. Create your agent's tools in a tools.py file using the `@tool` decorator
+4. Define your agent's configuration in config.yaml
+
+## How It Works
+
+Agentica uses a structured reasoning process:
+
+1. **Planning**: The agent creates a detailed plan based on the user's request
+2. **Thinking**: The agent analyzes the current state and decides what to do next
+3. **Action**: The agent executes one or more tools to gather information or make changes
+4. **Observation**: The agent evaluates the results and updates its approach
+
+This process repeats until the agent reaches a conclusion or hits the maximum number of steps.
 
 ## Roadmap
 
-- **Expand Agent Library:** New agents and enhancements are always in the pipeline.
-- **Cross-Platform Integration:** CLI, mobile notifications, and more.
-- **Continuous Learning:** Integrate feedback loops for agents to evolve over time.
-
-add full email reading to mail agent
-add agent logo display
-wise memory for complex tasks
-setup yamls
+- **Expand Agent Library**: Adding researcher and coder agents
+- **Improving Persistent Memory**: Cross-session memory for long-running tasks
+- **Enhanced Tool Ecosystem**: More pre-built tools for common operations
+- **Agent Collaboration**: Enable multiple agents to work together on complex tasks, with task delegation and possibly agent creation.

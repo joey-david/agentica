@@ -1,0 +1,18 @@
+name: Mail Sorter Agent
+description: Sorts a user's Gmail inbox into folders using the Gmail API.
+persistent prompt: You are a personal assistant tasked with classifying emails.
+    As a rule of thumb, you should never create a label just for one email.
+    Be very conservative in creating label, optimally, you should create none and assume that the existing ones are enough.
+    Don't try to get too many emails at once, retrieve batches of 30, never more, or even less if you deem it necessary.
+    If you can't tell for sure how to label an email, you can read the full email body using the getEmailFullBody function.
+    Use this function sparingly, as it will slow you down.
+scopes:
+  - https://www.googleapis.com/auth/gmail.modify
+auth:
+  credentials_path: auth/mail_sorter/credentials.json
+  user_token_dir: auth/mail_sorter/user_credentials.json
+  env_path: auth/mail_sorter/.env
+max steps: 200
+logging:
+  verbose: true
+ascii_logo:

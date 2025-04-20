@@ -6,6 +6,7 @@ from google.auth.transport.requests import Request
 from googleapiclient.discovery import build
 from core.tool import Tool, tool
 from typing import List, Dict, Tuple, Any
+import base64
 
 
 # Scopes: the permissions that the application will request from the user
@@ -159,6 +160,49 @@ def getUnreadUnclassifiedEmails(number: int = 20) -> List[Dict[str, Any]]:
     
     return emails
 
+
+@tool
+def getEmailFullBody(id: str) -> str:
+    """
+    Gets the full body (contents) of an email, in case the snippet wasn't enough.
+
+    Arguments:
+        id (str): The ID of the email to retrieve.
+
+    Returns:
+        str: The full body of the email as plain text.
+    """
+    service = login()
+
+    try:
+        # Get the email details
+        msg = service.users().messages().get(userId='me', id=id, format='full').execute()
+
+        # Extract the body from the payload
+        payload = msg.get('payload', {})
+        parts = payload.get('parts', [])
+        
+        # Helper function to extract the body content
+        def get_body(parts):
+            for part in parts:
+                if part.get('mimeType') == 'text/plain' and 'data' in part.get('body', {}):
+                    return part['body']['data']
+                elif 'parts' in part:
+                    result = get_body(part['parts'])
+                    if result:
+                        return result
+            return None
+
+        body_data = get_body(parts)
+        if not body_data:
+            return "⚠️ Unable to retrieve the email body."
+
+        # Decode the body content
+        body = base64.urlsafe_b64decode(body_data).decode('utf-8')
+        return body
+
+    except Exception as e:
+        return f"⚠️ Failed to retrieve email body. Reason: {e}"
 
 @tool
 def getExistingLabels() -> List[Dict[str, str]]:
