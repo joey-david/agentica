@@ -6,3 +6,9 @@ google-auth
 google-auth-oauthlib 
 google-auth-httplib2 
 google-api-python-client
+beautifulsoup4>=4.11.1
+arxiv>=1.4.2
+PyPDF2>=2.11.1
+python-dotenv>=0.20.0
+selenium>=4.9.0
+webdriver-manager>=3.8.6

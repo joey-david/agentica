@@ -308,17 +308,24 @@ class ToolCallingAgent:
             try:
                 parsed_response = self.parse_response(response)
                 
+                if "Action" in parsed_response:
+                    # Remind the model not to act during observation steps
+                    self.display.print_error("Action detected during observation step. Reminding the model to avoid actions.")
+                    retry_count += 1
+                    compiled_prompt += "\n\nReminder: In your previous attempt, you've performed an action during this observation step."
+                    continue
+                
                 if "Observation" in parsed_response:
                     observation = parsed_response["Observation"]
                     self.memory.add_structured_entry("Observation", observation)
                     self.display.print_observation(observation)
                     return response
+                
                 elif "Final_Answer" in parsed_response:
-                    # If model directly gave a final answer, that's ok too
                     return response
+                
                 else:
                     # No valid component found, but parse_response didn't raise an error
-                    # We'll retry with more explicit instructions
                     retry_count += 1
                     self.display.print_error(f"No valid Observation or Final_Answer found, retrying ({retry_count}/{max_retries})...")
                     

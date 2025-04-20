@@ -55,10 +55,9 @@ The framework features a completely custom-built agent architecture with a struc
 
 - **Mail Sorter**: Organizes Gmail inbox by intelligently sorting emails into appropriate folders using the Gmail API
 - **Weather Agent**: Provides detailed weather information for any location using real-time weather data
-
-## In development
-
 - **Internet Researcher**: Performs comprehensive web research on any topic with advanced search and synthesis capabilities
+
+## In Development
 - **Code Writer**: Generates, explains, and refines code in various programming languages based on user requirements
 
 ## Installation & Setup
