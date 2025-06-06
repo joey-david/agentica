@@ -9,6 +9,8 @@ from core.utils.display import Colors
 def load_agent_module(agent_path):
     """Dynamically load an agent module from path."""
     spec = importlib.util.spec_from_file_location("agent_module", agent_path)
+    if spec is None or spec.loader is None:
+        raise ImportError(f"Cannot load module from {agent_path}")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -96,7 +98,7 @@ def print_agents_menu(agents):
     
     return len(agents)
 
-def run_agent(agent_name, prompt=None):
+def run_agent(agent_name, prompt=None, debug_llm=False):
     """Run the specified agent."""
     agents = get_available_agents()
     if agent_name not in agents:
@@ -117,6 +119,9 @@ def run_agent(agent_name, prompt=None):
         
         # Run agent
         if hasattr(agent_module, 'Agent'):
+            # Set debug_llm flag on the agent instance
+            agent_module.Agent.debug_llm = debug_llm
+            
             if prompt:
                 result = agent_module.Agent.run(prompt)
                 print(f"\n{Colors.GREEN}Result:{Colors.RESET}")
@@ -145,6 +150,7 @@ def main():
     parser.add_argument("--agent", "-a", help="Run a specific agent by name")
     parser.add_argument("--list", "-l", action="store_true", help="List all available agents")
     parser.add_argument("--prompt", "-p", help="Provide a prompt for the agent")
+    parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to show all LLM inputs and outputs")
     
     args = parser.parse_args()
     print_banner()
@@ -154,7 +160,7 @@ def main():
         print_agents_menu(agents)
         return
     if args.agent:
-        run_agent(args.agent, args.prompt)
+        run_agent(args.agent, args.prompt, args.debug)
         return
     
     # Interactive menu
@@ -174,7 +180,7 @@ def main():
             choice_idx = int(choice) - 1
             if 0 <= choice_idx < num_agents:
                 agent_name = list(sorted(agents.keys()))[choice_idx]
-                run_agent(agent_name)
+                run_agent(agent_name, debug_llm=args.debug)
             else:
                 print(f"{Colors.RED}Invalid selection. Enter 1-{num_agents}.{Colors.RESET}")
         except (ValueError, IndexError):

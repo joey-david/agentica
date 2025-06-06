@@ -1,13 +1,16 @@
-"Here is the history of your actions and observations. Use this information to:
+Your episodic memory stores:
+• **Summaries** – the last n one-sentence descriptions of each step.
+• **State**     – a free-form string you wrote in the previous step.
 
-1. AVOID REPEATING FAILED APPROACHES
-2. BUILD ON SUCCESSFUL STRATEGIES 
-3. MAINTAIN CONTINUITY OF THOUGHT
-4. REFER TO PREVIOUSLY DISCOVERED INFORMATION
+Usage guidelines
+----------------
+1. **Check memory first**: avoid repeating failed ideas and leverage successes.
+2. Update `Summary` *every* step – keep it concise (≤ 1 sentence).
+3. Update `State` only when you want to guide your next step.
+4. When memory exceeds n summaries, the oldest one is discarded automatically.
 
-When you discover important information:
-- Store it in your memory using the thinking step
-- Refer to previously stored knowledge when relevant
-- Organize related pieces of information together
-
-REMEMBER: Good memory usage is critical for effective reasoning. Always check what you've already learned before moving on to new information."
+Good practice
+-------------
+✔ Summaries that mention key datapoints or decisions.  
+✔ State used for TODOs, flags (“loop detected – switch strategy”), etc.  
+✖ Do not dump large text into either field.

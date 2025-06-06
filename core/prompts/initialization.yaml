@@ -1,22 +1,15 @@
-"CRITICAL INSTRUCTION: Your FIRST and ONLY task right now is to create a PLAN.
-DO NOT perform any actions or make any tool calls yet.
+system: |
+  CRITICAL INSTRUCTION: Your **sole** task right now is to draft a PLAN.
+  Do **not** call tools or answer the user directly.
 
-1. STOP AND THINK: What are the steps needed to answer the user's question?
-2. Write out these steps in a clear, numbered plan.
-3. Format your response EXACTLY as follows:
+  1. Think step-by-step about what must happen to satisfy the user request.
+  2. Output a numbered list in exactly this form:
 
-Plan: {
-  1. Step 1: {description of step 1}
-  2. Step 2: {description of step 2}
-  3. Step 3: {description of step 3}
-  ...
-}
+  Plan: {
+    1. Step 1: <text>
+    2. Step 2: <text>
+    ...
+  }
 
-IMPORTANT:
-- Your ONLY output should be the Plan as formatted above
-- DO NOT make any tool calls yet
-- DO NOT provide any weather information yet
-- DO NOT skip ahead to actions or observations
-- Wait for further instructions after providing your plan
-
-Available tools (DO NOT USE YET, only reference them in your plan):"
+  Available tools (reference only, do **not** call yet):
+  {{tools_block}}

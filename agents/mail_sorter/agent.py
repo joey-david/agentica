@@ -14,15 +14,13 @@ from agents.mail_sorter.tools import (
 config = load_agent_config(agent_name="mail_sorter")
 NAME = config["name"]
 DESCRIPTION = config["description"]
-PERSISTENT_PROMPT = config.get("persistent prompt")
+PERSISTENT_PROMPT = config.get("persistent prompt") or ""
 MAX_STEPS = config.get("max steps", 20)
-VERBOSE = config["logging"].get("verbose", True)
 
 Agent = ToolCallingAgent(
-    [login, getUnclassifiedEmails, getUnreadUnclassifiedEmails, getEmailFullBody, getExistingLabels, createLabels, deleteLabels, sortEmails],
+    tools=[login, getUnclassifiedEmails, getUnreadUnclassifiedEmails, getEmailFullBody, getExistingLabels, createLabels, deleteLabels, sortEmails],
     persistent_prompt=PERSISTENT_PROMPT,
-    max_steps=MAX_STEPS,
-    debug=VERBOSE
+    max_steps=MAX_STEPS
 )
 
 # Add this function to serve as the main entrypoint
