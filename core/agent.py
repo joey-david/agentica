@@ -183,6 +183,16 @@ class ToolCallingAgent:
         self.display.print_error("Failed to get a valid thinking response after multiple attempts.")
         raise ValueError("Failed to get a valid thinking response with action after multiple retries.")
     
+    def LLM_step(self) -> str:
+        """
+        Perform a single step of reasoning using the LLM.
+        This is a placeholder for future LLM-specific logic.
+        Returns:
+            str: A message indicating the step was performed.
+        """
+        self.display.print_step_header("LLM STEP")
+        return "LLM step performed. (Placeholder for future LLM-specific logic)"
+
 
     def action_step(self, actions: dict, step_num: int = None) -> str:
         """
