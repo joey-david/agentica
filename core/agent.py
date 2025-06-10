@@ -8,64 +8,14 @@ from core.memory import Memory
 from core.inference import get_inference
 from core.utils.display import Display, Colors
 
-
-# -----------------------------------------------------------------------------
-# Helper utilities for prompt loading
-# -----------------------------------------------------------------------------
-
-PROMPT_DIR = Path("core/prompts")
-
-
-def _first_existing(name: str, exts=(".yaml", ".yml", ".txt")) -> Path | None:
-    """Return first path that exists in PROMPT_DIR among the given extensions."""
-    for ext in exts:
-        p = PROMPT_DIR / f"{name}{ext}"
-        if p.exists():
-            return p
-    return None
-
-
-def _load_plain(name: str) -> str:
-    """Load a prompt file as plain text (for `initialization`)."""
-    path = _first_existing(name)
-    if not path:
-        raise FileNotFoundError(f"Prompt '{name}' not found with .yaml/.yml/.txt extension in {PROMPT_DIR}")
-    return path.read_text()
-
-
-def _load_yaml(name: str) -> dict[str, Any]:
-    """Load a prompt expected to be valid YAML (for `step`).
-
-    Accepts .yaml/.yml (preferred). If a .txt file is present, it **must** still
-    contain YAML with `system:` and `template:` top‑level keys; otherwise we
-    raise an explicit, helpful error so the user fixes the formatting instead
-    of swallowing a vague `ScannerError`.
-    """
-    path = _first_existing(name)
-    if not path:
-        raise FileNotFoundError(f"Prompt '{name}' not found with .yaml/.yml/.txt extension in {PROMPT_DIR}")
-
-    raw = path.read_text()
-    try:
-        data = yaml.safe_load(raw)
-    except yaml.YAMLError as e:
-        raise ValueError(
-            f"{path.name} is not valid YAML. It must start with, e.g.\n"
-            f"system: |\n  <system text>\n\ntemplate: |\n  <template text>\n\n"
-            f"You can keep placeholders like {{plan_block}} – YAML doesn't mind."
-        ) from e
-
-    if not (isinstance(data, dict) and "system" in data and "template" in data):
-        raise ValueError(f"{path.name} must define 'system' and 'template' keys at top level.")
-    return data
-
-
 # -----------------------------------------------------------------------------
 #  The Agent
 # -----------------------------------------------------------------------------
 
 class ToolCallingAgent:
-    """Autonomous tool‑calling agent following the LLM ↔ tools alternation."""
+    """Autonomous tool‑calling agent following the LLM ↔ tools alternation,
+    with a context-aware memory and a structured approach to problem solving.
+    """
 
     def __init__(
         self,
@@ -86,8 +36,8 @@ class ToolCallingAgent:
         self.debug_llm = debug_llm
 
         # Load prompts -----------------------------------------------------------
-        self.init_prompt_text: str = _load_plain("initialization")  # plain text
-        self.step_prompt_yaml: dict[str, Any] = _load_yaml("step")   # YAML dict
+        self.init_prompt_text: str = yaml.safe_load("core/prompts/initialization.yaml")["system"]
+        self.step_prompt_yaml: dict[str, Any] = yaml.safe_load("core/prompts/step.yaml")
 
         # Banner -----------------------------------------------------------------
         self.display.print_banner("AGENTICA TOOL AGENT INITIALIZED")

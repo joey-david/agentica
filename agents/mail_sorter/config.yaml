@@ -13,6 +13,4 @@ auth:
   user_token_dir: auth/mail_sorter/user_credentials.json
   env_path: auth/mail_sorter/.env
 max steps: 200
-logging:
-  verbose: true
 ascii_logo:
