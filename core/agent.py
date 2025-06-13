@@ -36,8 +36,8 @@ class ToolCallingAgent:
         self.debug_llm = debug_llm
 
         # Load prompts -----------------------------------------------------------
-        self.init_prompt_text: str = yaml.safe_load("core/prompts/initialization.yaml")["system"]
-        self.step_prompt_yaml: dict[str, Any] = yaml.safe_load("core/prompts/step.yaml")
+        self.init_prompt_text: str = yaml.safe_load(Path("core/prompts/initialization.yaml").read_text())["system"]
+        self.step_prompt_yaml: dict[str, Any] = yaml.safe_load(Path("core/prompts/step.yaml").read_text())
 
         # Banner -----------------------------------------------------------------
         self.display.print_banner("AGENTICA TOOL AGENT INITIALIZED")
