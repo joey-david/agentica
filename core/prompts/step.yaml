@@ -31,23 +31,23 @@ template: |
 
   Current Plan
   ------------
-  {{plan_block}}
+  {plan_block}
 
-  Latest Summaries (max {{n}})
+  Latest Summaries (max {n})
   ----------------------------
-  {{summaries_block}}
+  {summaries_block}
 
   Persistent State
   ----------------
-  {{state_block}}
+  {state_block}
 
   Most Recent Tool Results
   ------------------------
-  {{results_block}}
+  {results_block}
 
   Available Tools
   ---------------
-  {{tools_block}}
+  {tools_block}
 
   # RESPOND
   Return only the JSON object described above.

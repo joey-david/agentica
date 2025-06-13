@@ -5,11 +5,10 @@ system: |
   1. Think step-by-step about what must happen to satisfy the user request.
   2. Output a numbered list in exactly this form:
 
-  Plan: {
+  Plan:
     1. Step 1: <text>
     2. Step 2: <text>
     ...
-  }
 
   Available tools (reference only, do **not** call yet):
-  {{tools_block}}
+  {tools_block}

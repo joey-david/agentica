@@ -17,20 +17,19 @@ DESCRIPTION = config["description"]
 PERSISTENT_PROMPT = config.get("persistent prompt") or ""
 MAX_STEPS = config.get("max steps", 20)
 
+print(NAME)
+print(DESCRIPTION)
+user_prompt = input("Prompt: ")
 Agent = ToolCallingAgent(
     tools=[login, getUnclassifiedEmails, getUnreadUnclassifiedEmails, getEmailFullBody, getExistingLabels, createLabels, deleteLabels, sortEmails],
     persistent_prompt=PERSISTENT_PROMPT,
+    user_prompt=user_prompt,
     max_steps=MAX_STEPS
 )
 
-# Add this function to serve as the main entrypoint
 def main():
-    print(NAME)
-    print(DESCRIPTION)
-    prompt = input("Prompt: ")
-    results = Agent.run(prompt)
+    results = Agent.run()
     print(results)
 
-# The __main__ block should call this function
 if __name__ == "__main__":
     main()

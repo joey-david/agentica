@@ -21,6 +21,7 @@ class ToolCallingAgent:
         self,
         tools: list,
         persistent_prompt: str = "",
+        user_prompt: str = "",
         memory_instance: Memory | None = None,
         max_steps: int = 20,
         history_length: int = 15,
@@ -31,6 +32,7 @@ class ToolCallingAgent:
         self.tools = {tool.name: tool for tool in tools}
         self.memory = memory_instance or Memory(history_length=history_length)
         self.persistent_prompt = persistent_prompt.strip()
+        self.user_prompt = user_prompt.strip()
         self.max_steps = max_steps
         self.display = Display(debug=debug)
         self.debug_llm = debug_llm
@@ -51,12 +53,13 @@ class ToolCallingAgent:
     # ------------------------------------------------------------------
     # STEP 0 : PLAN
     # ------------------------------------------------------------------
-    def initialize_step(self, user_prompt: str) -> str:
+    def initialize_step(self) -> str:
         """Collect Plan from the LLM using the initialization prompt."""
         self.display.print_step_header("INITIALIZATION")
 
         prompt = "\n".join([
-            user_prompt.strip(),
+            self.persistent_prompt,
+            self.user_prompt,
             self.init_prompt_text.format(tools_block=self.tools_prompt()),
         ])
 
@@ -76,8 +79,8 @@ class ToolCallingAgent:
     # ------------------------------------------------------------------
     # MAIN LOOP
     # ------------------------------------------------------------------
-    def run(self, user_prompt: str) -> str:
-        plan = self.initialize_step(user_prompt)
+    def run(self) -> str:
+        plan = self.initialize_step()
         results_json = "{}"  # first iteration has no tool results
 
         for step in range(1, self.max_steps + 1):
@@ -119,6 +122,8 @@ class ToolCallingAgent:
             tools_block=self.tools_prompt(),
         )
         full_prompt = "\n".join([
+            self.persistent_prompt,
+            self.user_prompt,
             self.step_prompt_yaml["system"],
             rendered,
         ])

@@ -1,16 +1,17 @@
-Your episodic memory stores:
-• **Summaries** – the last n one-sentence descriptions of each step.
-• **State**     – a free-form string you wrote in the previous step.
+system: |
+  Your episodic memory stores:
+  • **Summaries** – the last n one-sentence descriptions of each step.
+  • **State**     – a free-form string you wrote in the previous step.
 
-Usage guidelines
-----------------
-1. **Check memory first**: avoid repeating failed ideas and leverage successes.
-2. Update `Summary` *every* step – keep it concise (≤ 1 sentence).
-3. Update `State` only when you want to guide your next step.
-4. When memory exceeds n summaries, the oldest one is discarded automatically.
+  Usage guidelines
+  ----------------
+  1. **Check memory first**: avoid repeating failed ideas and leverage successes.
+  2. Update `Summary` *every* step – keep it concise (≤ 1 sentence).
+  3. Update `State` only when you want to guide your next step.
+  4. When memory exceeds n summaries, the oldest one is discarded automatically.
 
-Good practice
--------------
-✔ Summaries that mention key datapoints or decisions.  
-✔ State used for TODOs, flags (“loop detected – switch strategy”), etc.  
-✖ Do not dump large text into either field.
+  Good practice
+  -------------
+  ✔ Summaries that mention key datapoints or decisions.  
+  ✔ State used for TODOs, flags (“loop detected – switch strategy”), etc.  
+  ✖ Do not dump large text into either field.
