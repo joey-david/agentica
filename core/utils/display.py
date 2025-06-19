@@ -160,6 +160,11 @@ class Display:
         print(f"{Colors.BRIGHT_YELLOW}OBSERVATION:{Colors.RESET}")
         print(f"{Colors.YELLOW}{self.format_content(observation, indent=2)}{Colors.RESET}")
     
+    def print_memory_operation(self, message: str) -> None:
+        """Print memory operation message with appropriate formatting."""
+        timestamp = datetime.now().strftime("%H:%M:%S")
+        print(f"\n {Colors.CYAN}MEMORY ({timestamp}){Colors.RESET} - {message}")
+    
     def print_final_answer(self, answer):
         """Print a final answer with proper formatting"""
         if not self.debug:

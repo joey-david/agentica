@@ -95,7 +95,8 @@ class ToolCallingAgent:
                 "plan_block": plan,
                 "summaries_block": self.memory.get_summaries() or "None yet.",
                 "state_block": self.memory.get_state() or "None yet.",
-                "stored_results_block": self.memory.get_all_stored_results() or "No stored results yet.",
+                "stored_results_keys": self._format_stored_results_keys(),
+                "stored_results_block": self._format_stored_results(),
                 "results_block": results or "No tool results yet.",
                 "tools_block": self.tools_prompt(),
             },
@@ -161,11 +162,31 @@ class ToolCallingAgent:
     def run(self) -> str:
         plan = self.initialize_step()
         results_json = "{}"  # first iteration has no tool results
+        retrieved_keys = None  # Start with no retrieved keys
 
         for step in range(1, self.max_steps + 1):
             # 1) LLM TURN -------------------------------------------------------
             llm_raw = self.llm_step(plan, results_json)
             data = self.parse_response(llm_raw)
+
+            # Process memory commands -------------------------------------------
+            # Store new results if requested
+            if "StoreResults" in data and isinstance(data["StoreResults"], dict):
+                for key, value in data["StoreResults"].items():
+                    self.memory.store_result(key, value)
+                    self.display.print_memory_operation(f"Stored result: {key}")
+            
+            # Get specific results if requested
+            retrieved_keys = None
+            if "RetrieveResults" in data and isinstance(data["RetrieveResults"], list):
+                retrieved_keys = data["RetrieveResults"]
+                self.display.print_memory_operation(f"Retrieved keys: {', '.join(retrieved_keys)}")
+            
+            # Delete results if requested
+            if "DeleteResults" in data and isinstance(data["DeleteResults"], list):
+                for key in data["DeleteResults"]:
+                    self.memory.clear_stored_result(key)
+                    self.display.print_memory_operation(f"Deleted result: {key}")
 
             # Book‑keeping ------------------------------------------------------
             if summary := data.get("Summary", ""):
@@ -179,6 +200,7 @@ class ToolCallingAgent:
                 self.display.print_step_header("FINAL ANSWER")
                 self.display.print_final_answer(answer)
                 return answer
+
 
             # 2) TOOL TURN ------------------------------------------------------
             if isinstance(data.get("Actions"), list):
@@ -250,6 +272,37 @@ class ToolCallingAgent:
             if match:
                 return match.group(1).strip()
         return text.strip()
+
+    def _format_stored_results_keys(self) -> str:
+        """Format the stored results keys for the prompt."""
+        keys = self.memory.get_stored_results_keys()
+        if not keys:
+            return "No stored results available."
+        return ", ".join(keys)
+
+    def _format_stored_results(self, keys=None) -> str:
+        """Format specific stored results or a message about available keys."""
+        if keys is None:
+            return "To view stored results, use RetrieveResults with specific keys."
+        
+        result = []
+        for key in keys:
+            value = self.memory.get_stored_result(key)
+            if value is not None:
+                # Format the value based on its type
+                if isinstance(value, (list, dict)):
+                    formatted_value = json.dumps(value, indent=2)[:1000]  # Limit size
+                    if len(json.dumps(value)) > 1000:
+                        formatted_value += "... [truncated]"
+                else:
+                    formatted_value = str(value)[:1000]
+                    if len(str(value)) > 1000:
+                        formatted_value += "... [truncated]"
+                result.append(f"{key}: {formatted_value}")
+        
+        if not result:
+            return "No results found for the requested keys."
+        return "\n\n".join(result)
 
     # ------------------------------------------------------------------
     # DEBUG HELPERS

@@ -17,14 +17,10 @@ system: |
   2. Output valid JSON.
   3. Never invent keys.
   4. You should always output at least one tool call, or the final answer tag.
+  5. You are very strongly encouraged to use several tool calls at once if possible. The tools will be called sequentially, in the order you list them.
   No tool result means the previous step failed or this is the first step.
 
 template: |
-
-  # System Instructions
-  ----
-  {system}
-
   # Context
   ----
   {persistent_section}
@@ -37,17 +33,16 @@ template: |
   ----
   {plan_block}
 
-  # Latest Summaries (max {n})
+  # Memory
   ----
+  Summaries:
   {summaries_block}
 
-  # Persistent State
-  ----
+  State:
   {state_block}
 
-  # Important Stored Results
-  ----
-  {stored_results_block}
+  Available Stored Results (keys):
+  {stored_results_keys}
 
   # Most Recent Tool Results
   ----
@@ -58,14 +53,14 @@ template: |
   {tools_block}
 
   # RESPOND
-  Return only the JSON object containing the following:
+  Return a JSON object with:
+  - Thought: your reasoning process
+  - Actions: array of tool calls to make
+  - Summary: brief summary of this step (≤1 sentence)
+  - State: tracking info for next step
   
-  REQUIRED KEYS:
-  - Thought
-  - Actions
-  - Summary
-  - State
-
-  OPTIONAL KEY, ONLY IF THE PLAN IS COMPLETE AND THE PROMPT ACCOMPLISHED:
-  - StoreResults: {"key1": "value1", "key2": "value2", ...}
-  - Final_Answer
+  Optional:
+  - StoreResults: {"key": value} pairs to remember
+  - RetrieveResults: ["key1", "key2"] to access stored data
+  - DeleteResults: ["key1", "key2"] to clean up
+  - Final_Answer: only when task is complete

@@ -1,19 +1,52 @@
 system: |
-  Your episodic memory stores:
+  Your episodic memory consists of:
   • **Summaries** – the last n one-sentence descriptions of each step.
   • **State**     – a free-form string you wrote in the previous step, which you can use in any way you like.
-  • **Stored Results** – key data you want to keep for future steps.
+  • **Stored Results** – a persistent key-value store for important data you need across multiple steps.
 
-  Usage guidelines
-  ----------------
-  1. **Check memory first**: avoid repeating failed ideas and leverage successes, and don't use a tool to get information you already have.
-  2. Update `Summary` *every* step – keep it concise (≤ 1 sentence).
-  3. Update `State` only when you want to guide your next step.
-  4. When memory exceeds n summaries, the oldest one is discarded automatically.
+  Memory Management Guidelines
+  ---------------------------
+  1. **Check memory first**: Avoid repeating API calls for information you've already stored.
+  2. **Use descriptive keys**: Name stored results clearly (e.g., "email_ids", "user_preferences").
+  3. **Retrieve selectively**: Only request data you need for the current step.
+  4. **Clean up after yourself**: Delete results when you're sure they're no longer needed.
+  5. **Keep context focused**: Use memory to maintain continuity without cluttering your context.
 
-  Good practice
+  Good Practice
   -------------
-  ✔ Summaries that mention key datapoints or decisions.  
-  ✔ State used for TODOs, flags (“loop detected – switch strategy”), etc.
-  ✔ Storing key data (etc ids, labels, etc) for multi-step tasks.
-  ✖ Do not dump large text into either field.
+  ✔ Store structured data like IDs, lists, and API responses with descriptive keys  
+  ✔ Retrieve only what you need for the current step  
+  ✔ Delete old data to keep memory organized  
+  ✔ Use State for temporary flags and step guidance  
+  ✖ Don't store large text blocks or redundant information  
+
+template: |
+  # Memory Access
+  ----
+  Summaries:
+  {summaries_block}
+
+  State:
+  {state_block}
+
+  Available Stored Results (keys):
+  {stored_results_keys}
+
+  # Memory Management Commands
+  ----
+  To store new results, include:
+  ```json
+  "StoreResults": {
+    "key1": value1,
+    "key2": value2
+  }
+
+  To retrieve specific results, include:
+  ```json
+  "RetrieveResults": ["key1", "key2"]
+  ```
+
+  To delete results you no longer need, include:
+  ```json
+  "DeleteResults": ["key1", "key2"]
+  ```
