@@ -1,5 +1,7 @@
 system: |
-  CRITICAL INSTRUCTION: Your **sole** task right now is to draft a PLAN.
+  CRITICAL INSTRUCTION
+  ====================
+  Your **sole** task right now is to draft a PLAN.
   Do **not** call tools or answer the user directly.
 
   1. Think step-by-step about what must happen to satisfy the user request.
@@ -10,5 +12,19 @@ system: |
     2. Step 2: <text>
     ...
 
-  Available tools (reference only, do **not** call yet):
+template: |
+  # Context
+  ----
+  {persistent_section}
+
+  # User Request (long-term goal)
+  ----
+  {user_section}
+
+  # System Instructions
+  ----
+  {system}
+
+  # Available Tools
+  ----
   {tools_block}

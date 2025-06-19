@@ -7,6 +7,7 @@ class Memory:
     def __init__(self, history_length=10):
         self.summaries = deque(maxlen=history_length)
         self.state: str = ""
+        self.results_history = {}
         self.action_results: dict = {}
     
     # Summary of the last history_length steps (one sentence per step)
@@ -41,6 +42,26 @@ class Memory:
             return "No action results available."
         lines = [f"{key}: {value}" for key, value in self.action_results.items()]
         return "\n".join(lines)
+
+    # Persistent results data
+    
+    def store_result(self, key: str, value) -> None:
+        """Store an important result that needs to be remembered across steps."""
+        self.results_history[key] = value
+    
+    def get_stored_result(self, key: str):
+        """Retrieve a previously stored result."""
+        return self.results_history.get(key)
+
+    def clear_stored_result(self, key: str) -> None:
+        """Clear a stored result by its key."""
+        if key in self.results_history:
+            del self.results_history[key]
+    
+    def get_stored_results_keys(self) -> list:
+        """Get a list of all stored result keys."""
+        return list(self.results_history.keys())
+    
         
 
 if __name__ == "__main__":

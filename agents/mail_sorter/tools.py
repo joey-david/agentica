@@ -14,6 +14,7 @@ SCOPES = ['https://www.googleapis.com/auth/gmail.modify']
 
 @tool
 def login():
+    """ Logs in to the Gmail API using OAuth2 credentials."""
     load_dotenv()
 
     creds = None
