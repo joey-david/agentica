@@ -79,6 +79,41 @@ class Display:
         
         print(f"\n{color}{header}{Colors.RESET}\n")
 
+    def print_memory_update(self, op, text):
+        """Print a memory update with the given operation and text"""
+        if not self.debug:
+            return
+        
+        color = {
+            "STORE": Colors.BG_BLUE + Colors.WHITE,
+            "RETRIEVE": Colors.BG_CYAN + Colors.BLACK,
+            "DELETE": Colors.BG_RED + Colors.WHITE,
+        }.get(op.upper(), Colors.BG_WHITE + Colors.BLACK)
+        
+        print(f"\n{color} {op.upper()} {Colors.RESET} {text}\n")
+
+    def print_llm_input(self, prompt):
+        """Print the LLM input prompt"""
+        if not self.debug:
+            return
+        
+        self.print_step_header("LLM INPUT")
+        print(self.format_content(prompt))
+
+    def print_llm_output(self, response):
+        """Print the LLM output response"""
+        if not self.debug:
+            return
+        
+        self.print_step_header("LLM OUTPUT")
+        print(self.format_content(response))
+
+    def print_no_tool_call(self):
+        """Print a message when no tool call is made"""
+        if not self.debug:
+            return
+        print(f"{Colors.BOLD}{Colors.YELLOW}No tool call was made in this step.{Colors.RESET}")
+
     def format_content(self, content, indent=0, width=100):
         """Format content with proper indentation and wrapping"""
         if isinstance(content, dict) or isinstance(content, list):

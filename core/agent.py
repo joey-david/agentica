@@ -76,7 +76,12 @@ class ToolCallingAgent:
         if "Plan" not in parsed:
             raise ValueError("Initialization failed – no Plan detected.")
 
-        plan = parsed["Plan"].strip()
+        plan_data = parsed["Plan"]
+        if isinstance(plan_data, dict):
+            plan = json.dumps(plan_data, indent=2)
+        else:
+            plan = str(plan_data).strip()
+
         self.display.print_step_header("PLAN")
         print(f"{Colors.BRIGHT_GREEN}PLAN:{Colors.RESET}\n{plan}\n")
         return plan
@@ -84,19 +89,18 @@ class ToolCallingAgent:
     # ------------------------------------------------------------------
     # LLM TURN (THOUGHT + ACTIONS + SUMMARY + STATE)
     # ------------------------------------------------------------------
-    def llm_step(self, plan: str, results: str) -> str:
+    def llm_step(self, plan: str, results: str, retrieved_keys: list[str] | None = None) -> str:
         """Generate the next step using the step prompt."""
         rendered_prompt = format_yaml_prompt(
             yaml_file="core/prompts/step.yaml",
             sections={
-                "system_section": self.init_prompt_text,
                 "persistent_section": self.persistent_prompt,
                 "user_section": self.user_prompt,
                 "plan_block": plan,
                 "summaries_block": self.memory.get_summaries() or "None yet.",
                 "state_block": self.memory.get_state() or "None yet.",
                 "stored_results_keys": self._format_stored_results_keys(),
-                "stored_results_block": self._format_stored_results(),
+                "stored_results_block": self._format_stored_results(retrieved_keys),
                 "results_block": results or "No tool results yet.",
                 "tools_block": self.tools_prompt(),
             },
@@ -112,7 +116,6 @@ class ToolCallingAgent:
     # TOOL EXECUTION LOOP
     # ------------------------------------------------------------------
     def action_step(self, actions: dict, step_num: int | None = None) -> str:
-        self.display.print_step_header("ACTION", step_num)
         results: dict[str, Any] = {}
         call_count: dict[str, int] = {}
 
@@ -124,37 +127,50 @@ class ToolCallingAgent:
             if "Actions" in actions and isinstance(actions["Actions"], list):
                 action_list = actions["Actions"]
             elif "actions" in actions and isinstance(actions["actions"], list):
-                action_list = actions["actions"] 
+                action_list = actions["actions"]
 
         for act in action_list:
-            name = act.get("tool")
-            args = act.get("args", {})
-            if name not in self.tools:
-                msg = f"Error: tool '{name}' not found."
-                self.display.print_error(msg)
-                results[name] = msg
-                continue
+            # Case-insensitive key extraction
+            name = None
+            args = {}
+            
+            # Try different case variations for tool name
+            for key in ["tool", "Tool", "TOOL", "tool_name", "Tool_Name"]:
+                if key in act:
+                    name = act[key]
+                    break
+            
+            # Try different case variations for arguments
+            for key in ["args", "Args", "ARGS", "arguments", "Arguments", "ARGUMENTS"]:
+                if key in act:
+                    args = act[key]
+                    break
+            
+            if name is None:
+                self.display.print_error("Error: No tool name provided in action.")
+                continue  # Skip if no tool name found
 
             # unique key if tool called multiple times
             idx = call_count.get(name, 0)
             call_count[name] = idx + 1
             key = f"{name}_{idx}" if idx else name
+            
+            if name not in self.tools:
+                results[key] = f"Error: Tool '{name}' not found."
+                continue
 
             self.display.print_tool_call(name, ", ".join(f"{k}={v!r}" for k, v in args.items()))
             try:
-                out = self.tools[name](**args)
-                try:
-                    json.dumps(out)  # serialisable?
-                    results[key] = remove_repeating_substrings(out)
-                except TypeError:
-                    results[key] = str(out)
-                self.display.print_tool_result(results[key])
+                result = self.tools[name](**args)
+                # Convert non-serializable objects to strings
+                if hasattr(result, '__dict__') or str(type(result)).startswith('<'):
+                    results[key] = str(result)
+                else:
+                    results[key] = result
             except Exception as e:
-                err = f"Error executing {name}: {e}"
-                self.display.print_error(err)
-                results[key] = err
+                results[key] = f"Error: {e}"
 
-        return json.dumps({"results": results})
+        return json.dumps({"results": results}, default=str)
     
     # ------------------------------------------------------------------
     # MAIN LOOP
@@ -165,28 +181,29 @@ class ToolCallingAgent:
         retrieved_keys = None  # Start with no retrieved keys
 
         for step in range(1, self.max_steps + 1):
+            self.display.print_step_header("Thinking", step)
             # 1) LLM TURN -------------------------------------------------------
-            llm_raw = self.llm_step(plan, results_json)
+            llm_raw = self.llm_step(plan, results_json, retrieved_keys)
             data = self.parse_response(llm_raw)
 
             # Process memory commands -------------------------------------------
             # Store new results if requested
             if "StoreResults" in data and isinstance(data["StoreResults"], dict):
-                for key, value in data["StoreResults"].items():
-                    self.memory.store_result(key, value)
-                    self.display.print_memory_operation(f"Stored result: {key}")
+                for k, v in data["StoreResults"].items():
+                    self.memory.store_result(k, v)
+                    self.display.print_memory_update("STORE", f"{k} = {v}")
             
             # Get specific results if requested
             retrieved_keys = None
             if "RetrieveResults" in data and isinstance(data["RetrieveResults"], list):
                 retrieved_keys = data["RetrieveResults"]
-                self.display.print_memory_operation(f"Retrieved keys: {', '.join(retrieved_keys)}")
+                self.display.print_memory_update("RETRIEVE", f"Keys: {retrieved_keys}")
             
             # Delete results if requested
             if "DeleteResults" in data and isinstance(data["DeleteResults"], list):
                 for key in data["DeleteResults"]:
                     self.memory.clear_stored_result(key)
-                    self.display.print_memory_operation(f"Deleted result: {key}")
+                    self.display.print_memory_update("DELETE", f"Key: {key}")
 
             # Book‑keeping ------------------------------------------------------
             if summary := data.get("Summary", ""):
@@ -196,25 +213,24 @@ class ToolCallingAgent:
 
             # Termination check ------------------------------------------------
             if "Final_Answer" in data:
-                answer = data["Final_Answer"].strip()
                 self.display.print_step_header("FINAL ANSWER")
-                self.display.print_final_answer(answer)
-                return answer
-
+                print(data["Final_Answer"])
+                return data["Final_Answer"]
 
             # 2) TOOL TURN ------------------------------------------------------
+            action_dict = None
             if isinstance(data.get("Actions"), list):
-                # Direct array format: "Actions": [...]
-                action_dict = data["Actions"]
+                action_dict = {"Actions": data["Actions"]}
             elif isinstance(data.get("Actions"), dict):
-                # Nested format: "Actions": {"actions": [...]}
                 action_dict = data["Actions"]
             elif "actions" in data:
-                # Lowercase actions key
-                action_dict = data["actions"]
+                action_dict = {"Actions": data["actions"]}
             else:
-                raise ValueError("No valid Actions found in LLM response.")
+                self.display.print_no_tool_call()
+                results_json = "{}"
+                continue
 
+            self.display.print_step_header("Action", step)
             results_json = self.action_step(action_dict, step)
 
         self.display.print_max_steps_reached()
@@ -231,14 +247,12 @@ class ToolCallingAgent:
             out = {}
             
             # Extract known keys from JSON
-            for key in ["Plan", "Thought", "Summary", "State", "Final_Answer", "Actions"]:
+            for key in ["Plan", "Thought", "Summary", "State", "Final_Answer", "Actions", "StoreResults", "RetrieveResults", "DeleteResults"]:
                 if key in json_data:
                     out[key] = json_data[key]
-                
-            if out:
-                return out
+            return out
+
         except json.JSONDecodeError:
-            # Fall back to regex parsing if not valid JSON
             pass
             
         # Original regex-based parsing for non-JSON responses
@@ -251,54 +265,43 @@ class ToolCallingAgent:
         }
         out: dict[str, Any] = {}
         for key, pat in patterns.items():
-            if m := re.search(pat, text, re.DOTALL):
+            if m := re.search(pat, text, re.DOTALL | re.IGNORECASE):
                 out[key] = m.group(1).strip()
 
         # Actions --------------------------------------------------------------
         if m := re.search(r"Action:?\s*(\{.*\})", text, re.DOTALL):
             try:
                 out["Actions"] = json.loads(m.group(1))
-            except json.JSONDecodeError as e:
-                raise ValueError(f"Malformed Actions JSON: {e}\n--- RAW \n{m.group(1)[:200]} …") from e
+            except json.JSONDecodeError:
+                self.display.print_error("Warning: Could not parse Action JSON.")
 
         if not out:
-            raise ValueError("No recognised keys (Plan/Thought/Action/Summary/State/Final_Answer) in LLM response.")
+            self.display.print_error("Warning: Could not parse LLM response.")
         return out
     
     def normalize_llm_response(self, text: str) -> str:
         """Remove Markdown code block formatting and return clean JSON."""
         if text.startswith('```') and '```' in text[3:]:
-            match = re.search(r'```(?:json)?\n(.*?)\n```', text, re.DOTALL)
-            if match:
-                return match.group(1).strip()
+            text = re.sub(r'```(json)?', '', text, count=1)
+            text = re.sub(r'```', '', text, count=1)
         return text.strip()
 
     def _format_stored_results_keys(self) -> str:
         """Format the stored results keys for the prompt."""
         keys = self.memory.get_stored_results_keys()
         if not keys:
-            return "No stored results available."
+            return "No results stored yet."
         return ", ".join(keys)
 
-    def _format_stored_results(self, keys=None) -> str:
+    def _format_stored_results(self, keys: list[str] | None = None) -> str:
         """Format specific stored results or a message about available keys."""
         if keys is None:
-            return "To view stored results, use RetrieveResults with specific keys."
+            return "You can request specific results by using 'RetrieveResults': [key1, key2] in your response."
         
         result = []
         for key in keys:
             value = self.memory.get_stored_result(key)
-            if value is not None:
-                # Format the value based on its type
-                if isinstance(value, (list, dict)):
-                    formatted_value = json.dumps(value, indent=2)[:1000]  # Limit size
-                    if len(json.dumps(value)) > 1000:
-                        formatted_value += "... [truncated]"
-                else:
-                    formatted_value = str(value)[:1000]
-                    if len(str(value)) > 1000:
-                        formatted_value += "... [truncated]"
-                result.append(f"{key}: {formatted_value}")
+            result.append(f'### {key}:\n{value}')
         
         if not result:
             return "No results found for the requested keys."
@@ -309,10 +312,8 @@ class ToolCallingAgent:
     # ------------------------------------------------------------------
     def _dbg_llm_input(self, prompt: str) -> None:
         if self.debug_llm:
-            # Lighter gray (ANSI color 250), dim, italic
-            print(f"\n\033[38;5;243m\033[2m\033[3m=== LLM INPUT ===\n{prompt}\n\033[0m")
+            self.display.print_llm_input(prompt)
 
     def _dbg_llm_output(self, resp: str) -> None:
         if self.debug_llm:
-            # Even lighter gray (ANSI color 252), dim, italic
-            print(f"\n\033[38;5;245m\033[2m\033[3m=== LLM OUTPUT ===\n{resp}\n\033[0m")
+            self.display.print_llm_output(resp)
