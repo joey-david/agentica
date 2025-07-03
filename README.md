@@ -4,7 +4,7 @@ Agentica is a powerful framework for creating, running, and managing large langu
 
 ## Architecture
 
-![Agentica Architecture Diagram](agent_idea.jpg)
+![Agentica Architecture Diagram](agent_schema.png)
 
 The framework features a completely custom-built agent architecture with a structured thought/action/observation loop:
 
