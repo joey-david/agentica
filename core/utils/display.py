@@ -103,10 +103,7 @@ class Display:
     def print_llm_output(self, response):
         """Print the LLM output response"""
         if not self.debug:
-            return
-        
-        self.print_step_header("LLM OUTPUT")
-        print(self.format_content(response))
+            return        
 
     def print_no_tool_call(self):
         """Print a message when no tool call is made"""

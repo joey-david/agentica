@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from core.agent import ToolCallingAgent
 from core.enhancedMemory import EnhancedMemory
 from core.utils.config import load_agent_config
@@ -6,7 +8,8 @@ from agents.web_researcher.tools import (
     fetch_webpage_content,
     search_arxiv,
     download_pdf,
-    summarize_text
+    summarize_text,
+    persist_research,
 )
 
 # Load configuration
@@ -18,10 +21,16 @@ MAX_STEPS = config.get("max steps", 40)
 VERBOSE = config["logging"].get("verbose", True)
 
 # Initialize with enhanced memory for better knowledge management
-memory = EnhancedMemory(history_length=30, max_kb_items=200)
+MEMORY_PATH = Path("agents/web_researcher/memory_store.json")
+memory = EnhancedMemory(
+    history_length=30,
+    timeline_length=120,
+    max_kb_items=200,
+    storage_path=MEMORY_PATH,
+)
 
 Agent = ToolCallingAgent(
-    [search_web, fetch_webpage_content, search_arxiv, download_pdf, summarize_text],
+    [search_web, fetch_webpage_content, search_arxiv, download_pdf, summarize_text, persist_research],
     persistent_prompt=PERSISTENT_PROMPT,
     memory_instance=memory,
     max_steps=MAX_STEPS,

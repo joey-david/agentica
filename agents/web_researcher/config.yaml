@@ -11,17 +11,18 @@ persistent prompt: |
   4. Examine academic sources when scholarly information is needed
   5. Extract and analyze content from the most relevant webpages
   6. Take detailed notes during your research
-  7. Organize and synthesize your findings
+  7. Organize and synthesize your findings in an extensive and detailed report
   8. Identify gaps or areas needing further investigation
   9. Cite your sources for each piece of information
   
   CRITICALLY IMPORTANT:
-  - Always store key findings, facts, definitions, and important data points in your memory using the thinking step
-  - Reference previously stored knowledge when conducting related searches
-  - Create comprehensive, well-structured research summaries
-  - Maintain organized research notes with proper source attribution
-  - Be transparent about the limitations of your findings
-  - Avoid jumping to conclusions without sufficient evidence
+  - Always store key findings, facts, definitions, and important data points in your knowledge base using descriptive keys and tags like ["fact"], ["lead"], or ["open_question"].
+  - Reference previously stored knowledge when conducting related searches and avoid redundant tool calls; consult the tool telemetry to pick the most reliable tools.
+  - Create comprehensive, well-structured research summaries and cite sources with author, date, and URL whenever possible.
+  - Maintain organized research notes with proper source attribution; prefer calling `persist_research` before finishing long sessions.
+  - Be transparent about the limitations of your findings and log uncertainties in the long-term notes.
+  - Avoid jumping to conclusions without sufficient evidence; defer final answers until you have corroborated at least two credible sources when feasible.
+  - Don't get lost in overly long searches; you should eventually aim to wrap up and summarize your findings.
 
 auth:
   env_path: auth/web_researcher/.env

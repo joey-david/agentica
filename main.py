@@ -98,7 +98,7 @@ def print_agents_menu(agents):
     
     return len(agents)
 
-def run_agent(agent_name, prompt=None, debug_llm=False):
+def run_agent(agent_name, prompt=None, debug_llm=True):
     """Run the specified agent."""
     agents = get_available_agents()
     if agent_name not in agents:
@@ -119,8 +119,10 @@ def run_agent(agent_name, prompt=None, debug_llm=False):
         
         # Run agent
         if hasattr(agent_module, 'Agent'):
-            # Set debug_llm flag on the agent instance
-            agent_module.Agent.debug_llm = debug_llm
+            # Ensure debug output is always enabled
+            agent_module.Agent.debug_llm = True
+            if getattr(agent_module.Agent, "display", None) is not None:
+                agent_module.Agent.display.debug = True
             
             if prompt:
                 result = agent_module.Agent.run(prompt)
@@ -150,7 +152,7 @@ def main():
     parser.add_argument("--agent", "-a", help="Run a specific agent by name")
     parser.add_argument("--list", "-l", action="store_true", help="List all available agents")
     parser.add_argument("--prompt", "-p", help="Provide a prompt for the agent")
-    parser.add_argument("--debug", "-d", action="store_true", help="Enable debug mode to show all LLM inputs and outputs")
+    parser.add_argument("--debug", "-d", action="store_true", default=True, help="Enable debug mode to show all LLM inputs and outputs")
     
     args = parser.parse_args()
     print_banner()

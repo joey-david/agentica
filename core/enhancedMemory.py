@@ -1,165 +1,254 @@
-from core.memory import Memory
+from __future__ import annotations
+
 import json
-import datetime
+from dataclasses import dataclass, field
+from datetime import datetime, timedelta
+from pathlib import Path
+from typing import Any, Dict, Iterable, List, Optional
+
+from collections import Counter
+
+from core.memory import Memory, _truncate
+
+
+@dataclass
+class KnowledgeItem:
+    """Container for long-term knowledge entries."""
+
+    text: str
+    tags: List[str] = field(default_factory=list)
+    added_at: datetime = field(default_factory=datetime.utcnow)
+    step: Optional[int] = None
+
+    def to_payload(self) -> Dict[str, Any]:
+        return {
+            "text": self.text,
+            "tags": self.tags,
+            "added_at": self.added_at.isoformat(),
+            "step": self.step,
+        }
+
+    @classmethod
+    def from_payload(cls, payload: Dict[str, Any]) -> "KnowledgeItem":
+        added_at = datetime.fromisoformat(payload.get("added_at")) if payload.get("added_at") else datetime.utcnow()
+        return cls(
+            text=payload.get("text", ""),
+            tags=payload.get("tags", []),
+            added_at=added_at,
+            step=payload.get("step"),
+        )
+
 
 class EnhancedMemory(Memory):
-    """
-    Enhanced version of Memory class with improved storage and retrieval capabilities.
-    Extends the base Memory class with structured data storage, tagging, and search functionality.
-    """
+    """Extended memory with tagged knowledge base and persistence."""
 
-    def __init__(self, history_length=25, max_kb_items=100):
-        """
-        Initialize enhanced memory with specified history and knowledge base capacity.
-        
-        Args:
-            history_length (int): Maximum entries in history
-            max_kb_items (int): Maximum items in knowledge base
-        """
-        super().__init__(history_length=history_length)
-        self.knowledge_base = {}  # Structured knowledge storage
-        self.kb_timestamps = {}   # When items were added
-        self.kb_tags = {}         # Tags for items for better retrieval
+    def __init__(
+        self,
+        history_length: int = 25,
+        timeline_length: int = 80,
+        max_kb_items: int = 150,
+        storage_path: Optional[str | Path] = None,
+    ) -> None:
+        super().__init__(history_length=history_length, timeline_length=timeline_length)
         self.max_kb_items = max_kb_items
-        
-    def store_knowledge(self, key, value, tags=None):
-        """
-        Store important information in knowledge base with optional tags.
-        
-        Args:
-            key (str): Unique identifier for this knowledge
-            value (any): The content to store
-            tags (list): Optional list of tags for categorization
-        """
-        # Clean up old items if we're at capacity
-        if len(self.knowledge_base) >= self.max_kb_items:
-            oldest_key = min(self.kb_timestamps.items(), key=lambda x: x[1])[0]
-            self.remove_knowledge(oldest_key)
-            
-        # Store the new knowledge
-        self.knowledge_base[key] = value
-        self.kb_timestamps[key] = datetime.datetime.now()
-        
-        # Add tags if provided
-        if tags:
-            self.kb_tags[key] = [t.lower() for t in tags]
-        else:
-            self.kb_tags[key] = []
-            
-        # Add a structured entry in history about this new knowledge
+        self.storage_path = Path(storage_path) if storage_path else None
+        self.knowledge_base: Dict[str, KnowledgeItem] = {}
+
+        if self.storage_path:
+            self._load_from_disk()
+            self._prune_stale_knowledge()
+
+    # ------------------------------------------------------------------
+    # Knowledge base helpers
+    # ------------------------------------------------------------------
+    def store_knowledge(
+        self,
+        key: str,
+        value: Any,
+        *,
+        tags: Optional[Iterable[str]] = None,
+        step: Optional[int] = None,
+    ) -> None:
+        key = key.strip()
+        if not key:
+            raise ValueError("Knowledge key must be a non-empty string.")
+
+        text_value = self._normalise_value(value)
+        if len(text_value) > 4000:
+            text_value = text_value[:4000] + " …"
+        tag_list = sorted({tag.strip().lower() for tag in (tags or []) if tag})
+
+        if len(self.knowledge_base) >= self.max_kb_items and key not in self.knowledge_base:
+            self._prune_oldest()
+
+        item = KnowledgeItem(text=text_value, tags=tag_list, step=step)
+        self.knowledge_base[key] = item
+
+        note = f"{key}: {text_value[:160]}" if text_value else key
+        self.add_long_term_note(note)
         self.add_structured_entry(
-            "Memory Storage", 
-            f"Stored knowledge: '{key}' with tags: {tags or []}"
+            "KnowledgeStore",
+            f"Stored knowledge '{key}'",
+            metadata={"tags": ", ".join(tag_list) or None},
+            step=step,
         )
-        
-    def retrieve_by_key(self, key):
-        """Get knowledge by exact key"""
-        if key in self.knowledge_base:
-            return self.knowledge_base[key]
-        return None
-        
-    def retrieve_by_tags(self, tags, require_all=False):
-        """
-        Find all knowledge items matching the given tags.
-        
-        Args:
-            tags (list): Tags to search for
-            require_all (bool): If True, item must have ALL tags; if False, ANY tag matches
-            
-        Returns:
-            dict: Knowledge items matching the criteria
-        """
-        tags = [t.lower() for t in tags]
-        results = {}
-        
-        for key, item_tags in self.kb_tags.items():
-            if require_all:
-                if all(tag in item_tags for tag in tags):
-                    results[key] = self.knowledge_base[key]
-            else:
-                if any(tag in item_tags for tag in tags):
-                    results[key] = self.knowledge_base[key]
-                    
-        return results
-        
-    def retrieve_related(self, query, limit=5):
-        """
-        Find knowledge related to the query based on simple keyword matching.
-        More sophisticated implementations could use embeddings or other similarity measures.
-        
-        Args:
-            query (str): The search query
-            limit (int): Maximum number of results
-            
-        Returns:
-            dict: Related knowledge items
-        """
-        query_terms = query.lower().split()
-        scored_results = {}
-        
-        # Score each knowledge item based on term matches
-        for key, value in self.knowledge_base.items():
-            score = 0
-            content = str(value).lower()
-            
-            # Score based on content match
+        self._persist()
+        self._prune_stale_knowledge()
+
+    def retrieve_by_key(self, key: str) -> Optional[str]:
+        item = self.knowledge_base.get(key)
+        return item.text if item else None
+
+    def retrieve_by_tags(self, tags: Iterable[str], require_all: bool = False) -> Dict[str, str]:
+        query_tags = {tag.strip().lower() for tag in tags if tag}
+        if not query_tags:
+            return {}
+
+        matches: Dict[str, str] = {}
+        for key, item in self.knowledge_base.items():
+            item_tags = set(item.tags)
+            if require_all and not query_tags.issubset(item_tags):
+                continue
+            if not require_all and not query_tags.intersection(item_tags):
+                continue
+            matches[key] = item.text
+        return matches
+
+    def retrieve_related(self, query: str, limit: int = 5) -> Dict[str, str]:
+        query_terms = {token.lower() for token in query.split() if token}
+        if not query_terms:
+            return {}
+
+        scored: List[tuple[str, float]] = []
+        for key, item in self.knowledge_base.items():
+            text = item.text.lower()
+            score = 0.0
             for term in query_terms:
-                if term in content:
-                    score += 1
-                    
-            # Extra points if term is in key
-            for term in query_terms:
-                if term in key.lower():
+                if term in text:
                     score += 2
-                    
-            # Extra points for tag matches
-            for term in query_terms:
-                if term in self.kb_tags.get(key, []):
+                if term in key.lower():
                     score += 3
-                    
-            if score > 0:
-                scored_results[key] = (value, score)
-                
-        # Sort by score and take top results
-        sorted_results = sorted(scored_results.items(), 
-                              key=lambda x: x[1][1], 
-                              reverse=True)[:limit]
-                              
-        return {k: v[0] for k, v in sorted_results}
-        
-    def remove_knowledge(self, key):
-        """Remove an item from knowledge base"""
+                if term in item.tags:
+                    score += 1.5
+            if score:
+                scored.append((key, score))
+
+        scored.sort(key=lambda kv: kv[1], reverse=True)
+        return {key: self.knowledge_base[key].text for key, _ in scored[:limit]}
+
+    def remove_knowledge(self, key: str) -> None:
         if key in self.knowledge_base:
             del self.knowledge_base[key]
-            del self.kb_timestamps[key]
-            if key in self.kb_tags:
-                del self.kb_tags[key]
-                
-    def summarize_knowledge_base(self):
-        """Get a summary of what's in the knowledge base"""
-        summary = []
-        
-        # Group by tags
-        tag_groups = {}
-        for key, tags in self.kb_tags.items():
-            for tag in tags or ["untagged"]:
-                if tag not in tag_groups:
-                    tag_groups[tag] = []
-                tag_groups[tag].append(key)
-                
-        # Create summary
-        for tag, keys in tag_groups.items():
-            summary.append(f"- {tag.upper()}: {len(keys)} items - {', '.join(keys[:3])}" + 
-                         (f"... and {len(keys)-3} more" if len(keys) > 3 else ""))
-                
-        return "\n".join(summary) if summary else "Knowledge base is empty"
-        
-    def get_all(self) -> str:
-        """Override to include knowledge base summary"""
-        memory_str = super().get_all()
-        
-        # Add knowledge base summary
-        memory_str += "\n\nKnowledge Base Summary:\n"
-        memory_str += self.summarize_knowledge_base()
-        
-        return memory_str
+            self.add_structured_entry("KnowledgeDelete", f"Removed knowledge '{key}'")
+            self._persist()
+
+    # ------------------------------------------------------------------
+    # Rendering hooks
+    # ------------------------------------------------------------------
+    def render_knowledge_digest(self, limit: int = 8) -> str:
+        if not self.knowledge_base:
+            return "Knowledge base is empty."
+        latest = sorted(
+            self.knowledge_base.items(),
+            key=lambda kv: kv[1].added_at,
+            reverse=True,
+        )[:limit]
+        lines = []
+        metrics = self._knowledge_metrics()
+        lines.append(
+            f"Total items: {metrics['count']} | Newest tag: {metrics['top_tag']} | Oldest entry age: {metrics['oldest_age']} days"
+        )
+        for key, item in latest:
+            tags = f" [{', '.join(item.tags)}]" if item.tags else ""
+            lines.append(f"{key}{tags}: {_truncate(item.text, 200)}")
+        return "\n".join(lines)
+
+    def snapshot_for_prompt(self) -> Dict[str, str]:
+        data = super().snapshot_for_prompt()
+        data["knowledge_digest_block"] = self.render_knowledge_digest()
+        return data
+
+    def add_long_term_note(self, note: str) -> None:
+        super().add_long_term_note(note)
+        self._persist()
+
+    # ------------------------------------------------------------------
+    # Persistence helpers
+    # ------------------------------------------------------------------
+    def _persist(self) -> None:
+        if not self.storage_path:
+            return
+        payload = {
+            "knowledge_base": {key: item.to_payload() for key, item in self.knowledge_base.items()},
+            "long_term_notes": list(self.long_term_notes),
+        }
+        self.storage_path.parent.mkdir(parents=True, exist_ok=True)
+        self.storage_path.write_text(json.dumps(payload, indent=2), encoding="utf-8")
+
+    def _load_from_disk(self) -> None:
+        if not self.storage_path or not self.storage_path.exists():
+            return
+        try:
+            payload = json.loads(self.storage_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError:
+            return
+
+        kb_payload = payload.get("knowledge_base", {})
+        for key, item_payload in kb_payload.items():
+            try:
+                self.knowledge_base[key] = KnowledgeItem.from_payload(item_payload)
+            except Exception:
+                continue
+
+        notes = payload.get("long_term_notes", [])
+        if notes:
+            self.long_term_notes.clear()
+            for note in notes:
+                if isinstance(note, str):
+                    self.long_term_notes.append(note)
+
+    def _prune_oldest(self) -> None:
+        if not self.knowledge_base:
+            return
+        oldest_key = min(self.knowledge_base.items(), key=lambda kv: kv[1].added_at)[0]
+        del self.knowledge_base[oldest_key]
+
+    def _prune_stale_knowledge(self, max_age_days: int = 30) -> None:
+        if not self.knowledge_base:
+            return
+        cutoff = datetime.utcnow() - timedelta(days=max_age_days)
+        stale = [key for key, item in self.knowledge_base.items() if item.added_at < cutoff]
+        for key in stale:
+            del self.knowledge_base[key]
+        if stale:
+            self.add_structured_entry(
+                "KnowledgePrune",
+                f"Removed {len(stale)} stale knowledge items",
+                metadata={"max_age_days": max_age_days}
+            )
+            self._persist()
+
+    def _knowledge_metrics(self) -> Dict[str, Any]:
+        count = len(self.knowledge_base)
+        if not self.knowledge_base:
+            return {"count": 0, "oldest_age": "-", "top_tag": "-"}
+
+        oldest = min(self.knowledge_base.values(), key=lambda item: item.added_at)
+        age_days = max((datetime.utcnow() - oldest.added_at).days, 0)
+        tag_counter: Counter = Counter()
+        for item in self.knowledge_base.values():
+            tag_counter.update(item.tags)
+        top_tag = tag_counter.most_common(1)[0][0] if tag_counter else "-"
+
+        return {"count": count, "oldest_age": age_days, "top_tag": top_tag}
+
+    @staticmethod
+    def _normalise_value(value: Any) -> str:
+        if value is None:
+            return ""
+        if isinstance(value, str):
+            return value.strip()
+        try:
+            return json.dumps(value, ensure_ascii=False, indent=2)
+        except TypeError:
+            return str(value)

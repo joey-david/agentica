@@ -25,6 +25,12 @@ system: |
   5. You are very strongly encouraged to use several tool calls at once if possible. The tools will be called sequentially, in the order you list them.
   No tool result means the previous step failed or this is the first step.
 
+  **Timeline & Knowledge:**
+  - "Recent Timeline" lists what just happened. Do not repeat failed work.
+  - "Long-Term Notes" are durable hints you wrote earlier.
+  - "Knowledge Digest" condenses the persistent knowledge base. Re-use keys instead of duplicating searches.
+  - "Tool Telemetry" shows which tools are succeeding. Prefer higher-signal tools, adjust plan when error rates climb.
+
 template: |
   # Context
   ----
@@ -51,6 +57,22 @@ template: |
 
   Retrieved Results:
   {stored_results_block}
+
+  # Recent Timeline
+  ----
+  {recent_timeline_block}
+
+  # Long-Term Notes
+  ----
+  {long_term_notes_block}
+
+  # Knowledge Digest
+  ----
+  {knowledge_digest_block}
+
+  # Tool Telemetry
+  ----
+  {telemetry_block}
 
   # Most Recent Tool Results
   ----
