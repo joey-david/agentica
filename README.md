@@ -53,6 +53,10 @@ The framework features a completely custom-built agent architecture with a struc
 └── setup.py
 ```
 
+## Quick video presentation
+
+<iframe width="560" height="315" src="https://www.youtube.com/embed/WVGzbLHz_uI" title="Agentica Presentation" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+
 ## Current Agents
 
 - **Mail Sorter**: Organizes Gmail inbox by intelligently sorting emails into appropriate folders using the Gmail API
@@ -104,21 +108,3 @@ Creating a new agent is straightforward:
 2. Add an agent.py file that defines an Agent object using the `ToolCallingAgent` class
 3. Create your agent's tools in a tools.py file using the `@tool` decorator
 4. Define your agent's configuration in config.yaml
-
-## How It Works
-
-Agentica uses a structured reasoning process:
-
-1. **Planning**: The agent creates a detailed plan based on the user's request
-2. **Thinking**: The agent analyzes the current state and decides what to do next
-3. **Action**: The agent executes one or more tools to gather information or make changes
-4. **Observation**: The agent evaluates the results and updates its approach
-
-This process repeats until the agent reaches a conclusion or hits the maximum number of steps.
-
-## Roadmap
-
-- **Expand Agent Library**: Adding researcher and coder agents
-- **Improving Persistent Memory**: Cross-session memory for long-running tasks
-- **Enhanced Tool Ecosystem**: More pre-built tools for common operations
-- **Agent Collaboration**: Enable multiple agents to work together on complex tasks, with task delegation and possibly agent creation.

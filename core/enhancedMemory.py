@@ -58,9 +58,8 @@ class EnhancedMemory(Memory):
             self._load_from_disk()
             self._prune_stale_knowledge()
 
-    # ------------------------------------------------------------------
     # Knowledge base helpers
-    # ------------------------------------------------------------------
+    
     def store_knowledge(
         self,
         key: str,
@@ -142,9 +141,7 @@ class EnhancedMemory(Memory):
             self.add_structured_entry("KnowledgeDelete", f"Removed knowledge '{key}'")
             self._persist()
 
-    # ------------------------------------------------------------------
     # Rendering hooks
-    # ------------------------------------------------------------------
     def render_knowledge_digest(self, limit: int = 8) -> str:
         if not self.knowledge_base:
             return "Knowledge base is empty."
@@ -172,9 +169,7 @@ class EnhancedMemory(Memory):
         super().add_long_term_note(note)
         self._persist()
 
-    # ------------------------------------------------------------------
     # Persistence helpers
-    # ------------------------------------------------------------------
     def _persist(self) -> None:
         if not self.storage_path:
             return
