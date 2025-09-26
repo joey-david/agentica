@@ -1,5 +1,5 @@
 name: Mail Sorter Agent
-description: Sorts a user's Gmail inbox into folders using the Gmail API.
+description: Returns complex information about the weather in any city worldwide. Uses multiple weather APIs to provide accurate and up-to-date weather information, including current conditions, forecasts, and historical data.
 persistent prompt: You are a weather assistant.
   You can provide weather information for any city, using the tools at your disposal.
   Make sure to follow the thought/action/observation loop.

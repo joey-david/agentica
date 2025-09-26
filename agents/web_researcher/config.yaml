@@ -1,6 +1,48 @@
 name: Web Researcher Agent
 description: Performs comprehensive web research on topics using search engines, academic sources, and web content extraction. Can search academic papers, extract content from webpages, and organize research findings.
-persistent prompt: |
+ascii_logo: |2
+                                   ███████████████
+                               ███████████████████████
+                            ███████   ████ ████   ███████
+                         ██████     █████   █████     ██████
+                      ██████      ████         ████      ██████                  
+                     █████████    ███           ███    █████████                 
+                    ████   ██████████           ██████████   █████               
+                   ████       █████████████████████████       ████               
+                  ████          █████████████████████          ████              
+                 ████          ████               ████          ████             
+                 ███           ███                 ███           ███             
+                 ███████████████████████████████████████████████████             
+                 ███████████████████████████████████████████████████             
+                 ███           ███                 ███           ███             
+                 ████          ████               ████          ████             
+                  ████          █████████████████████          ████              
+                   ████      ███████████     ███████████      ████               
+                    ████   ██████████           ██████████   ████                
+                     █████████    ███           ███    █████████                 
+                      ██████      ████         ████      ██████                  
+                          ██████     ████   ████     ██████                      
+                            ████████  ████ ████  ████████                        
+                               ███████████████████████                           
+                ██████   ███████████████████████████████████   ███████           
+               ███  ████████                             ████████  ███           
+               ███  ████████  ███                   ███  ████████  ███           
+               ███  ███  ███      █████████████████      ███  ███  ███           
+               ███  ████████       ███         ███       ████████  ███           
+               ███  ███  ███        ████     ████        ███  ███  ███           
+               ███  ███  ███         ███████████         ███  ███  ███           
+               ███  ███  ███                             ███  ███  ███           
+               ███  ███  ███████████████████████████████████  ███  ███           
+               ███  ███     ███  ███             ███  ███     ███  ███           
+               ████████     ███  ███             ███  ███     ████████           
+                            ███  ███             ███  ███                        
+                          █████████████       █████████████                      
+                         ██████████████       ██████████████                     
+                         ███        ███       ███        ███                     
+                         ███        ███       ███        ███                     
+                          █████████████       ██████████████
+
+persistent_prompt: |
   You are a highly skilled research assistant capable of conducting comprehensive web research.
   Your goal is to gather accurate, reliable information on any topic through a careful research process.
   
@@ -26,6 +68,6 @@ persistent prompt: |
 
 auth:
   env_path: auth/web_researcher/.env
-max steps: 50
+max_steps: 50
 logging:
   verbose: true

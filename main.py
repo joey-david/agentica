@@ -2,6 +2,7 @@ import os
 import sys
 import argparse
 import importlib.util
+import shutil
 from pathlib import Path
 import yaml
 from core.utils.display import Colors
@@ -54,6 +55,9 @@ def get_available_agents():
 
 def print_banner():
     """Print the ASCII banner for Agentica."""
+    # Clear the console for a clean intro display.
+    os.system('cls' if os.name == 'nt' else 'clear')
+
     banner = r"""
     █████╗  ██████╗ ███████╗███╗   ██╗████████╗██╗ ██████╗ █████╗ 
    ██╔══██╗██╔════╝ ██╔════╝████╗  ██║╚══██╔══╝██║██╔════╝██╔══██╗
@@ -62,10 +66,18 @@ def print_banner():
    ██║  ██║╚██████╔╝███████╗██║ ╚████║   ██║   ██║╚██████╗██║  ██║
    ╚═╝  ╚═╝ ╚═════╝ ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝ ╚═════╝╚═╝  ╚═╝
    """
-    print(f"{Colors.BRIGHT_CYAN}{banner}{Colors.RESET}")
-    print(f"{Colors.BRIGHT_BLUE}A collection of LLM agents for various tasks{Colors.RESET}")
-    print(f"{Colors.BRIGHT_BLACK}https://github.com/joey-david/agentica{Colors.RESET}")
-    print("\n" + "=" * 70 + "\n")
+    width = shutil.get_terminal_size(fallback=(80, 20)).columns
+
+    def center_lines(text: str) -> str:
+        lines = text.strip("\n").splitlines()
+        return "\n".join(line.center(width) for line in lines)
+
+    centered_banner = center_lines(banner)
+    print(f"{Colors.BRIGHT_CYAN}{centered_banner}{Colors.RESET}")
+    print(f"{Colors.BRIGHT_BLUE}{'A collection of LLM agents for various tasks'.center(width)}{Colors.RESET}")
+    print(f"{Colors.BRIGHT_BLACK}{'https://github.com/joey-david/agentica'.center(width)}{Colors.RESET}")
+    separator = "=" * 70
+    print("\n" + separator.center(width) + "\n")
 
 def display_logo(agent_name):
     """Display agent ASCII logo if available."""

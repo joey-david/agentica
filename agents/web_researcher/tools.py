@@ -6,8 +6,6 @@ import json
 import os
 import sys
 import time
-import subprocess
-import shutil
 from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -194,96 +192,20 @@ class BrowserManager:
         raise ValueError(f"Unsupported backend: {backend}")
 
     def _ensure_window_visible(self, driver: "webdriver.Remote") -> None:
-        """Try to bring the browser window to the foreground for the user.
-
-        Behaviour / configuration:
-        - Respects optional env vars to control position & size:
-          * AGENTICA_BROWSER_X, AGENTICA_BROWSER_Y (default auto WMs choice)
-          * AGENTICA_BROWSER_W, AGENTICA_BROWSER_H (if unset -> maximize)
-        - If AGENTICA_BROWSER_FORCE_FRONT=1 and the platform is Linux, will
-          attempt to use 'wmctrl' or 'xdotool' if available to raise window.
-        - Falls back silently if any step fails (never crashes the tool call).
-        """
+        """Try to bring the browser window to the foreground for the user."""
         try:
             handle = driver.current_window_handle
             driver.switch_to.window(handle)
-
-            # Custom geometry if provided; otherwise maximize
             try:
-                w = int(os.environ.get("AGENTICA_BROWSER_W", "0"))
-                h = int(os.environ.get("AGENTICA_BROWSER_H", "0"))
-                x = int(os.environ.get("AGENTICA_BROWSER_X", "-1"))
-                y = int(os.environ.get("AGENTICA_BROWSER_Y", "-1"))
-            except ValueError:
-                w = h = x = y = 0
-
-            if w > 200 and h > 200:
-                try:
-                    driver.set_window_size(w, h)
-                except Exception:
-                    pass
-                if x >= 0 and y >= 0:
-                    try:
-                        driver.set_window_position(x, y)
-                    except Exception:
-                        pass
-            else:  # maximize fallback
-                try:
-                    driver.maximize_window()
-                except Exception:
-                    pass
-
-            # JS focus attempt
+                driver.maximize_window()
+            except Exception:
+                pass
             try:
                 driver.execute_script("window.focus();")
             except Exception:
                 pass
-
-            # Optional external raise on Linux
-            if (
-                os.name == "posix"
-                and os.environ.get("AGENTICA_BROWSER_FORCE_FRONT") == "1"
-            ):
-                self._try_external_focus()
         except Exception:
             pass
-
-    def _try_external_focus(self) -> None:
-        """Use wmctrl / xdotool if present to raise the most recent browser window.
-        This is a best-effort helper for some tiling / strict WMs.
-        """
-        try:
-            # Choose a generic pattern; we don't store window id portably.
-            patterns = [
-                "Firefox",  # firefox
-                "Mozilla Firefox",
-                "Chrome",  # chrome
-                "Chromium",
-            ]
-            used_tool = None
-            if shutil.which("wmctrl"):
-                used_tool = "wmctrl"
-                for pat in patterns:
-                    subprocess.run(["wmctrl", "-a", pat], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-            elif shutil.which("xdotool"):
-                used_tool = "xdotool"
-                for pat in patterns:
-                    # search returns window ids; activate first if any
-                    res = subprocess.run(["xdotool", "search", "--onlyvisible", "--name", pat], capture_output=True, text=True)
-                    if res.returncode == 0 and res.stdout.strip():
-                        wid = res.stdout.strip().splitlines()[0]
-                        subprocess.run(["xdotool", "windowactivate", wid], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-                        break
-            if used_tool:
-                return
-        except Exception:
-            pass
-
-    def bring_to_front(self) -> None:
-        """Public helper so tools can explicitly nudge the window each call."""
-        if self.driver is None:
-            return
-        self._ensure_window_visible(self.driver)
 
     def shutdown(self) -> None:
         if self.driver is not None:
@@ -441,7 +363,6 @@ def search_web(query: str, num_results: int = 6) -> List[Dict[str, str]]:
     else:
         try:
             driver = browser_manager.get_driver()
-            browser_manager.bring_to_front()
             driver.get("https://duckduckgo.com/")
             wait_for_page(driver)
 
@@ -549,7 +470,6 @@ def fetch_webpage_content(url: str, extract_text_only: bool = True) -> Dict[str,
     else:
         try:
             driver = browser_manager.get_driver()
-            browser_manager.bring_to_front()
             driver.get(url)
             wait_for_page(driver, timeout=20)
             time.sleep(1.2)

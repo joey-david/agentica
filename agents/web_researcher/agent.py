@@ -16,9 +16,17 @@ from agents.web_researcher.tools import (
 config = load_agent_config(agent_name="web_researcher")
 NAME = config["name"]
 DESCRIPTION = config["description"]
-PERSISTENT_PROMPT = config.get("persistent prompt")
-MAX_STEPS = config.get("max steps", 40)
-VERBOSE = config["logging"].get("verbose", True)
+
+# Support both snake_case and legacy space-separated config keys.
+PERSISTENT_PROMPT = (
+    config.get("persistent_prompt")
+    or config.get("persistent prompt")
+    or ""
+)
+MAX_STEPS = config.get("max_steps", config.get("max steps", 40))
+
+logging_config = config.get("logging", {})
+VERBOSE = logging_config.get("verbose", True)
 
 # Initialize with enhanced memory for better knowledge management
 MEMORY_PATH = Path("agents/web_researcher/memory_store.json")
